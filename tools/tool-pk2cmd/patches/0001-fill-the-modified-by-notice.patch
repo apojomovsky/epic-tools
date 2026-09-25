@@ -1,0 +1,22 @@
+Fill the modified-by notice Microchip's banner leaves as a placeholder.
+
+Microchip PK2CMD licence clause 1(b) permits distributing a modified version
+for use with Microchip products provided a fixed copyright and modified-by
+notice is prominently posted where end users will see it. Upstream's own
+`-?l` banner already prints that notice text, but with Microchip's literal
+`[INSERT YOUR NAME, DATE OF SOFTWARE MODIFICATION HERE]` placeholder, which
+satisfies nothing. This patch names the modifier, so the banner carries a
+complete notice rather than a template. Sent upstream so the queue can
+shrink.
+
+--- a/pk2cmd/cmd_app.cpp
++++ b/pk2cmd/cmd_app.cpp
+@@ -3371,7 +3371,7 @@
+ 	printf("\n");
+ 	printf("\"Copyright (c) 2005-2009 Microchip Technology Inc. All rights\n");
+ 	printf("reserved. This version of the PICkit(tm) 2 PK2CMD Software has been\n");
+-	printf("modified by [INSERT YOUR NAME, DATE OF SOFTWARE MODIFICATION HERE].\n");
++	printf("modified by the epic8 project (2026-09).\n");
+ 	printf("You may use, copy, modify and distribute the Software for use with\n");
+ 	printf("Microchip products only.  If you distribute the Software or its\n");
+ 	printf("derivatives, the Software must have this copyright and disclaimer\n");

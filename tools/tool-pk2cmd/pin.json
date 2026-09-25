@@ -1,0 +1,59 @@
+{
+  "package": "tool-pk2cmd",
+  "version": "1.27.1",
+  "description": "pk2cmd: command line software for the PICkit2, PICkit3 and PKOB programmers",
+  "keywords": [
+    "tools",
+    "uploader",
+    "pic",
+    "pickit",
+    "pk2cmd"
+  ],
+  "license": {
+    "name": "Microchip PK2CMD Software License",
+    "file": "license.txt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaka-fi/pk2cmd.git"
+  },
+  "upstream": {
+    "url": "https://github.com/jaka-fi/pk2cmd/archive/refs/tags/v1.27.01.tar.gz",
+    "page": "https://github.com/jaka-fi/pk2cmd",
+    "tag": "v1.27.01",
+    "commit": "29747767fd08dcc209cb79c7592ad39be5a0419e",
+    "sha256": "7229b277cbe449ff951132e1c399f0f37f6b2154533cda3f8652ad3c105e7d4b",
+    "extract_dir": "pk2cmd-1.27.01"
+  },
+  "build": {
+    "kind": "make",
+    "subdir": "pk2cmd",
+    "make_args": [
+      "linux"
+    ],
+    "output": "pk2cmd",
+    "verify": {
+      "args": [
+        "./pk2cmd",
+        "-?l"
+      ],
+      "expect_exit": 0,
+      "banner_must_match": "modified by the epic8 project"
+    },
+    "ldflags": "-L/usr/lib/x86_64-linux-gnu -lusb-1.0"
+  },
+  "systems": [
+    "linux_x86_64"
+  ],
+  "bundled_libraries": [
+    "libusb-1.0"
+  ],
+  "data_files": [
+    {
+      "from": "pk2cmd/PK2DeviceFile.dat",
+      "to": "PK2DeviceFile.dat"
+    }
+  ],
+  "notice": "Copyright (c) 2005-2009 Microchip Technology Inc. All rights reserved. This version of the PICkit(tm) 2 PK2CMD Software has been modified by the epic8 project (2026-09). You may use, copy, modify and distribute the Software for use with Microchip products only. If you distribute the Software or its derivatives, the Software must have this copyright and disclaimer notice prominently posted in a location where end users will see it (e.g., installation program, program headers, About Box, etc.). To the maximum extent permitted by law, this Software is distributed \"AS IS\" and WITHOUT ANY WARRANTY INCLUDING BUT NOT LIMITED TO ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR PARTICULAR PURPOSE, or NON-INFRINGEMENT.",
+  "notes": "Microchip PK2CMD licence clause 1(b) permits distributing a modified version for use with Microchip products provided the fixed copyright and modified-by notice is shown prominently. patches/0001-fill-the-modified-by-notice.patch fills the placeholder Microchip's own banner carries, so the notice appears where end users see it, and the build refuses to package a binary whose banner does not match. Upstream is jaka-fi/pk2cmd (kair.us), the maintained fork, not cjacker/pk2cmd-minus, idle since 2023. PK2DeviceFile.dat ships beside the binary because pk2cmd resolves it by searching PATH. The licence has no SPDX identifier, so the manifest omits the license field and the shipped license.txt carries the terms. The package version maps upstream tag v1.27.01 to 1.27.1 (the leading zero is dropped), because package.json needs valid semver while the upstream tag does not use it."
+}

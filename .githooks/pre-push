@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# pre-push: reject force pushes, then run the local test suite.
+#
+# A push is a force when the remote ref is not an ancestor of the local
+# oid (a non-fast-forward rewrite): it drops the current branch tip for
+# every other agent pulling that branch, and the old commits are only
+# recoverable from a git reflog nobody is guaranteed to have. That must
+# be an explicit human decision, not a default. When a rewrite is
+# genuinely needed (messy history), get the human's go-ahead, then
+# re-run with:
+#   EPIC_FORCE_PUSH_APPROVED=1 git push --force-with-lease
+# New branches and branch deletions are not rewrites and always pass.
+#
+# Then run the exact suite command the repo CI runs:
+#   python3 -m unittest discover -t . -s tests
+
+set -uo pipefail
+
+# ---- force-push guard ----
+
+approved="${EPIC_FORCE_PUSH_APPROVED:-0}"
+force_refs=""
+
+while read -r local_ref local_oid remote_ref remote_oid; do
+    [ -z "$local_ref" ] && continue
+    [ "$remote_oid" = "0000000000000000000000000000000000000000" ] && continue
+    [ "$local_oid" = "0000000000000000000000000000000000000000" ] && continue
+    if ! git merge-base --is-ancestor "$remote_oid" "$local_oid" 2>/dev/null; then
+        force_refs="$force_refs $local_ref"
+    fi
+done
+
+if [ -n "$force_refs" ]; then
+    if [ "$approved" = "1" ]; then
+        echo "pre-push: force push approved for:$force_refs (EPIC_FORCE_PUSH_APPROVED=1)"
+    else
+        echo "pre-push: refusing force push of:$force_refs" >&2
+        echo "  A force push rewrites shared history and drops the current" >&2
+        echo "  branch commits for every other agent working this repo." >&2
+        echo "  If the rewrite is genuinely needed, get the human's explicit" >&2
+        echo "  go-ahead, then re-run with:" >&2
+        echo "    EPIC_FORCE_PUSH_APPROVED=1 git push --force-with-lease" >&2
+        exit 1
+    fi
+fi
+
+# ---- prose lint gate (fires even when the ritual was never run) ----
+
+# The gate runs the epic-tasks CLI, not `python3 -m epic_tasks`: this repo has
+# no copy of that package and must not need one on sys.path. A machine without
+# the CLI installed skips the gate with a notice rather than blocking, because
+# a hook that always fails teaches --no-verify.
+if command -v epic-tasks >/dev/null 2>&1; then
+    if ! epic-tasks prose --verify; then
+        echo "pre-push: comment blocks violating the prose rules (see above)" >&2
+        echo "  Fix the flagged blocks, or reword them so they hold up." >&2
+        exit 1
+    fi
+else
+    echo "pre-push: epic-tasks not found, prose gate skipped" >&2
+fi
+
+# ---- local CI (only reached when the push is not refused) ------------
+
+python3 -m unittest discover -t . -s tests >/dev/null || {
+    echo "pre-push: test suite failed (python3 -m unittest discover -t . -s tests)" >&2
+    exit 2
+}

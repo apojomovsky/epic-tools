@@ -1,0 +1,46 @@
+name: ci
+
+# The gate every pin change lands against. It validates every pin file and
+# runs the suite, so a broken pin is caught on the pull request rather than at
+# release time. The full package build lives in release.yml: it fetches
+# upstream sources, which a gate on every push should not depend on.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate every pin
+        run: |
+          for pin in tools/*/pin.json; do
+            echo "validate $pin"
+            python3 scripts/toolpin.py --validate "$pin"
+          done
+
+      - name: Run the test suite
+        run: python3 -m unittest discover -t . -s tests -v
+
+      - name: Check the pin files are valid JSON
+        run: |
+          for f in tools/*/pin.json; do
+            python3 -m json.tool "$f" >/dev/null
+          done
+
+      - name: Check shell script syntax
+        run: |
+          shopt -s nullglob
+          files=(scripts/*.sh)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no scripts/*.sh yet"
+          else
+            for f in "${files[@]}"; do bash -n "$f"; done
+          fi

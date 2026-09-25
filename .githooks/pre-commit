@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# pre-commit: run the local test suite. Python stdlib only, the suite
+# is fast enough to gate every commit. Install with: make setup-hooks
+
+set -uo pipefail
+
+python3 -m unittest discover -t . -s tests >/dev/null || {
+    echo "pre-commit: test suite failed (python3 -m unittest discover -t . -s tests)" >&2
+    exit 1
+}

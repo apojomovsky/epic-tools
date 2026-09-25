@@ -1,0 +1,14 @@
+# The vendored dependency set for pure-Python tool packages, resolved when
+# tool-picpro 0.4.1 was first packaged (2026-09-25). A tool pin that names
+# this file in build.constraints builds against exactly this set, so a rebuild
+# months later does not silently vendor different versions against the ground
+# rule that a pin rebuilds byte-for-byte.
+#
+# pyserial is here too: its wheel ships no licence file in dist-info, so the
+# tool directory also carries tools/tool-picpro/licences/pyserial-LICENSE.txt
+# for it.
+docopt==0.6.2
+intelhex==2.3.0
+platformdirs==4.11.14
+pyserial==3.5
+PyYAML==6.0.3

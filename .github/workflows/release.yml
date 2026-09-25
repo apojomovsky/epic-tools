@@ -1,0 +1,161 @@
+name: release
+
+# Builds every tool package and publishes it to the registry on a tag.
+#
+# Two outputs per run: the GitHub Release at <tool>-v<version> is the archive
+# of record, and the registry publication is what PlatformIO resolves when a
+# project selects the tool. Publication is skipped with a warning when
+# PLATFORMIO_AUTH_TOKEN is absent, since no workflow can create that secret
+# for itself, so a repo without one still produces verifiable packages.
+
+on:
+  push:
+    tags:
+      - "*-v*"
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "one package to build, e.g. tool-minipro (empty: every tool)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+        system: [linux_x86_64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this run covers the tool
+        id: scope
+        env:
+          REQUESTED: ${{ inputs.package }}
+          TOOL: ${{ matrix.tool }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          # A tag names the tool it releases (<tool>-v<version>), so a tag run
+          # builds only that tool; a dispatch builds the requested one or all.
+          # No windows_amd64 host exists until a Windows build image does.
+          if [ "$EVENT" = "push" ]; then
+            case "$REF" in
+              "${TOOL}-v"*) echo "selected=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "selected=false" >> "$GITHUB_OUTPUT" ;;
+            esac
+          elif [ -n "$REQUESTED" ]; then
+            if [ "$REQUESTED" = "$TOOL" ]; then
+              echo "selected=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "selected=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "selected=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate the pin
+        if: steps.scope.outputs.selected == 'true'
+        run: python3 scripts/toolpin.py --validate "tools/${{ matrix.tool }}/pin.json"
+
+      - name: Build the package
+        if: steps.scope.outputs.selected == 'true'
+        run: |
+          python3 scripts/build_tool.py \
+            --pin "tools/${{ matrix.tool }}/pin.json" \
+            --system "${{ matrix.system }}" \
+            --out dist
+          ls -lh dist/
+
+      - name: Check the package carries its licence and its source reference
+        if: steps.scope.outputs.selected == 'true'
+        run: |
+          # D-10: every package ships its licence and a source reference. This
+          # is checked here rather than trusted to the build, because it is a
+          # redistribution obligation and not a build detail.
+          pkg="$(python3 -c "
+          import sys; sys.path.insert(0, 'scripts')
+          import toolpin
+          pin = toolpin.load_pin('tools/${{ matrix.tool }}/pin.json')
+          print(pin['license']['file'])
+          ")"
+          archive="$(ls dist/*.tar.gz)"
+          tar tzf "$archive" | sort > /tmp/contents.txt
+          for required in "$pkg" SOURCE.txt package.json; do
+            grep -qxF "$required" /tmp/contents.txt \
+              || { echo "::error::$archive is missing $required"; exit 1; }
+          done
+          tar xzf "$archive" -O SOURCE.txt
+
+      - uses: actions/upload-artifact@v4
+        if: steps.scope.outputs.selected == 'true'
+        with:
+          name: ${{ matrix.tool }}-${{ matrix.system }}
+          path: dist/*.tar.gz
+
+      - name: Publish to this repo's Releases
+        if: steps.scope.outputs.selected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tool="${{ matrix.tool }}"
+          version="$(python3 -c "
+          import sys; sys.path.insert(0, 'scripts')
+          import toolpin
+          print(toolpin.load_pin('tools/${tool}/pin.json')['version'])
+          ")"
+          upstream="$(python3 -c "
+          import sys; sys.path.insert(0, 'scripts')
+          import toolpin
+          pin = toolpin.load_pin('tools/${tool}/pin.json')
+          page = pin['upstream']['page']
+          tag = pin['upstream']['tag']
+          # GitLab separates the project path from its subpages with /-/;
+          # a GitHub page + /releases/tag works as is.
+          print(page + ('/-/releases/tag/' + tag if 'gitlab.com' in page
+                        else '/releases/tag/' + tag))
+          ")"
+          tag="${tool}-v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.tar.gz --clobber
+          else
+            {
+              echo "Built from $upstream"
+              echo
+              echo "Pinned upstream tag, patch queue, licence and redistribution"
+              echo "notes: \`tools/${tool}/pin.json\`."
+            } > /tmp/notes.md
+            gh release create "$tag" dist/*.tar.gz \
+              --title "${tool} ${version}" --notes-file /tmp/notes.md
+          fi
+
+      - name: Publish to the PlatformIO registry
+        if: steps.scope.outputs.selected == 'true'
+        env:
+          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+          TOOL: ${{ matrix.tool }}
+        run: |
+          if [ -z "$PLATFORMIO_AUTH_TOKEN" ]; then
+            # Via env, not an inline expression: an expansion that wraps onto
+            # two lines injects a newline into the annotation, which GitHub
+            # truncates at the first line.
+            echo "::warning::PLATFORMIO_AUTH_TOKEN is not set, so $TOOL was built and released on GitHub but not published to the registry. Add the secret to publish: see README.md."
+            exit 0
+          fi
+          python3 -m pip install --quiet platformio
+          # --no-interactive is required: the runner has no TTY, and the
+          # command's default prompt would fail the step rather than publish.
+          # A version already published with this host's file set is refused
+          # by the registry, which is why the check above is a plain upload
+          # path and a duplicate fails loudly instead of silently republishing.
+          pio pkg publish --no-interactive --owner "${{ github.repository_owner }}" \
+            --type tool dist/*.tar.gz || {
+              echo "::error::registry publication failed; see README.md for the"
+              echo "secret and the owner check"
+              exit 1
+            }
