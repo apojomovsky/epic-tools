@@ -33,8 +33,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import toolpin  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-IMAGE_TAG = "epic8-tools-build:local"
-PYTHON_IMAGE_TAG = "epic8-tools-build-python:local"
+IMAGE_TAG = "epic-tools-build:local"
+PYTHON_IMAGE_TAG = "epic-tools-build-python:local"
 
 # One image per build kind. A C tool needs a header-level-compatible base,
 # which is why that image is pinned to the glibc floor epic-cc's toolchain
