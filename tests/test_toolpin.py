@@ -79,6 +79,48 @@ class ValidateTest(unittest.TestCase):
         pin["build"] = {"kind": "cmake", "output": "demo"}
         self.assertTrue(any("build.kind" in p for p in toolpin.validate(pin)))
 
+    def test_a_data_file_from_the_upstream_tree_is_valid(self):
+        pin = base_pin()
+        pin["data_files"] = [{"from": "db.xml", "to": "share/db.xml"}]
+        self.assertEqual(toolpin.validate(pin), [])
+
+    def test_a_data_file_pinned_by_url_needs_a_digest(self):
+        pin = base_pin()
+        pin["data_files"] = [{"url": "https://example.invalid/db", "to": "db",
+                              "origin": "vendor db 2.0"}]
+        self.assertTrue(any("sha256" in p for p in toolpin.validate(pin)))
+        pin["data_files"][0]["sha256"] = "b" * 64
+        self.assertEqual(toolpin.validate(pin), [])
+
+    def test_a_data_file_pinned_by_url_needs_an_origin(self):
+        pin = base_pin()
+        pin["data_files"] = [{"url": "https://example.invalid/db", "to": "db",
+                              "sha256": "b" * 64}]
+        self.assertTrue(any("origin" in p for p in toolpin.validate(pin)))
+
+    def test_two_data_files_cannot_share_a_destination(self):
+        pin = base_pin()
+        pin["data_files"] = [
+            {"from": "db", "to": "share/db"},
+            {"url": "https://example.invalid/db", "sha256": "b" * 64,
+             "origin": "vendor db 2.0", "to": "share//db"},
+        ]
+        self.assertTrue(any("repeats destination" in p for p in toolpin.validate(pin)))
+
+    def test_a_data_file_names_exactly_one_source(self):
+        for data in ({"to": "db"},
+                     {"from": "db", "url": "https://example.invalid/db",
+                      "sha256": "b" * 64, "origin": "vendor db 2.0", "to": "db"}):
+            pin = base_pin()
+            pin["data_files"] = [data]
+            self.assertTrue(any("exactly one" in p for p in toolpin.validate(pin)),
+                            data)
+
+    def test_a_data_file_without_a_destination_is_rejected(self):
+        pin = base_pin()
+        pin["data_files"] = [{"from": "db"}]
+        self.assertTrue(any("'to'" in p for p in toolpin.validate(pin)))
+
     def test_a_non_object_pin_is_rejected_rather_than_crashing(self):
         self.assertEqual(toolpin.validate(["not", "an", "object"]),
                          ["pin must be a JSON object"])
@@ -145,6 +187,16 @@ class ShippedPinsTest(unittest.TestCase):
         mini_argv, mini_banner = toolpin.banner_check(mini)
         self.assertEqual(mini_argv, ["./minipro", "--version"])
         self.assertIsNone(mini_banner)
+
+    def test_pk2cmd_ships_microchips_device_file_not_upstreams(self):
+        # jaka-fi's PK2DeviceFile.dat is under the PICkitPlus claim, so the
+        # device file must come from its own pin, never the upstream tree.
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-pk2cmd" / "pin.json")
+        shipped = [d for d in pin["data_files"] if d["to"] == "PK2DeviceFile.dat"]
+        self.assertEqual(len(shipped), 1)
+        self.assertNotIn("from", shipped[0])
+        self.assertIn(shipped[0], toolpin.pinned_data_files(pin))
+        self.assertIn("1.62.14", shipped[0]["origin"])
 
     def test_bundled_libraries_are_declared_as_shared_object_names(self):
         # A shared object is what the build driver globs and copies, so a pin
@@ -227,6 +279,18 @@ class SourceReferenceTest(unittest.TestCase):
         for fact in ("v1.2.3", "0" * 40, "a" * 64,
                      "https://example.invalid/demo-1.2.3.tar.gz"):
             self.assertIn(fact, text)
+
+    def test_a_pinned_data_file_is_traceable_from_the_reference(self):
+        pin = base_pin()
+        pin["data_files"] = [
+            {"from": "local.xml", "to": "local.xml"},
+            {"url": "https://example.invalid/db", "sha256": "b" * 64,
+             "to": "db", "origin": "vendor db 2.0"},
+        ]
+        text = toolpin.source_reference(pin)
+        for fact in ("https://example.invalid/db", "b" * 64, "vendor db 2.0"):
+            self.assertIn(fact, text)
+        self.assertNotIn("local.xml", text)
 
 
 class BundledLibraryTest(unittest.TestCase):

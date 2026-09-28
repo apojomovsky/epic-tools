@@ -77,7 +77,7 @@ nobody has to reconstruct it from a release page.
 | Package | Upstream | Licence | What ships |
 |---|---|---|---|
 | `tool-minipro` | gitlab.com/DavidGriffith/minipro 0.7.4 | GPL-3.0-or-later | Binary, `LICENSE`, `SOURCE.txt`, the exact upstream source tarball, `infoic.xml`/`logicic.xml`, libusb as a shared library |
-| `tool-pk2cmd` | github.com/jaka-fi/pk2cmd v1.27.01 | Microchip PK2CMD | Binary, `license.txt`, `NOTICE.txt`, `PATCHES.txt`, `PK2DeviceFile.dat`, libusb as a shared library |
+| `tool-pk2cmd` | github.com/jaka-fi/pk2cmd v1.27.01 | Microchip PK2CMD | Binary, `license.txt`, `NOTICE.txt`, `PATCHES.txt`, Microchip's own `PK2DeviceFile.dat` 1.62.14, libusb as a shared library |
 | `tool-picpro` | github.com/Salamek/picpro 0.4.1 | GPL-2.0-only | Vendored Python with every dependency's `dist-info` (which carries its own licence), `LICENSE`, `SOURCE.txt` |
 
 libusb (LGPL-2.1) is bundled as a shared library, never linked statically, so
@@ -93,6 +93,13 @@ Microchip's literal `[INSERT YOUR NAME...]` placeholder, which satisfies
 nothing, so `patches/0001-fill-the-modified-by-notice.patch` names the
 modifier and the build refuses to package a binary whose banner does not carry
 the completed text. `NOTICE.txt` repeats it in the package itself.
+
+The device file is not the one in the jaka-fi tree. That file carries entries
+the PICkitPlus team added, and jaka-fi withdrew it on 2026-09-27 after their
+copyright claim. The package ships Microchip's final 1.62.14 file instead,
+pinned by URL and digest in the pin's `data_files`. It covers every curated
+beta part but not the SPI-type (MSB-first) families; for those, point
+`EPIC8_PK2CMD_PATH` at a build with a device file of your own.
 
 ## Releasing
 
