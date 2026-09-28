@@ -96,9 +96,9 @@ the completed text. `NOTICE.txt` repeats it in the package itself.
 
 The device file is not the one in the jaka-fi tree. That file carries entries
 the PICkitPlus team added, and jaka-fi withdrew it on 2026-09-27 after their
-copyright claim. The package ships Microchip's final 1.62.14 file instead,
+copyright claim. The package ships Microchip's 1.62.14 file instead,
 pinned by URL and digest in the pin's `data_files`. It covers every curated
-beta part but not the SPI-type (MSB-first) families; for those, point
+beta part but not the MSB-first (MSB1st) families; for those, point
 `EPIC8_PK2CMD_PATH` at a build with a device file of your own.
 
 ## Releasing
