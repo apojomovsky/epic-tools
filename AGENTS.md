@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`epic8-tools` builds the programmer tools the epic8 platform flashes with as
+`epic-tools` builds the programmer tools the epic8 platform flashes with as
 PlatformIO tool packages: `minipro` (XGecu TL866 series), `pk2cmd` (PICkit2,
 PICkit3, PKOB) and `picpro` (Kitsrus K150 and siblings). One directory per
 tool under `tools/`, each a pinned upstream tag plus a small patch queue, and a
@@ -25,7 +25,7 @@ queue that keeps growing is the failure mode this design exists to avoid.
 
 ## Picking up work
 
-Work across epic-cc, epic-hal, epic-platformio and epic8-tools is coordinated
+Work across epic-cc, epic-hal, epic-platformio and epic-tools is coordinated
 by [epic-tasks](https://github.com/apojomovsky/epic-tasks). Several agents,
 from different providers and on different machines, share one GitHub account,
 so the board is the only place that knows what is already taken. **Do not

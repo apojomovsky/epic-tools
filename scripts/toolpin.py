@@ -169,7 +169,7 @@ def source_reference(pin):
         f"commit: {upstream['commit']}",
         f"source archive: {upstream['url']}",
         f"source archive sha256: {upstream['sha256']}",
-        f"packaged by: https://github.com/apojomovsky/epic8-tools",
+        f"packaged by: https://github.com/apojomovsky/epic-tools",
         "",
     ])
 

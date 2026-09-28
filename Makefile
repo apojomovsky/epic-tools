@@ -13,10 +13,10 @@ build-tool: ## Build one package: make build-tool TOOL=tool-minipro
 	python3 scripts/build_tool.py --pin tools/$(TOOL)/pin.json --system linux_x86_64 --out dist
 
 image: ## Build the C build image (also built on demand by build)
-	docker build -f docker/build/Dockerfile -t epic8-tools-build:local .
+	docker build -f docker/build/Dockerfile -t epic-tools-build:local .
 
 image-python: ## Build the pure-Python build image (built on demand by build)
-	docker build -f docker/build/python.Dockerfile -t epic8-tools-build-python:local .
+	docker build -f docker/build/python.Dockerfile -t epic-tools-build-python:local .
 
 setup-hooks: ## Install git hooks (.githooks/ -> the repo's hooks dir)
 	@mkdir -p $$(git rev-parse --git-path hooks) \

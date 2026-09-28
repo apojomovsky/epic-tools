@@ -1,10 +1,10 @@
-<h1 align="center">epic8-tools</h1>
+<h1 align="center">epic-tools</h1>
 
 <p align="center"><em>PlatformIO tool packages for the programmers the epic8 platform flashes with.</em></p>
 
 <p align="center">
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![CI](https://github.com/apojomovsky/epic8-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/apojomovsky/epic8-tools/actions/workflows/ci.yml) [![status: early](https://img.shields.io/badge/status-early-yellow.svg)](#status)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![CI](https://github.com/apojomovsky/epic-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/apojomovsky/epic-tools/actions/workflows/ci.yml) [![status: early](https://img.shields.io/badge/status-early-yellow.svg)](#status)
 
 </p>
 
