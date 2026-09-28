@@ -1,0 +1,13 @@
+# Python bytecode caches (scripts/ runs from a checkout, no install step)
+__pycache__/
+*.pyc
+
+# Built packages. Reproducible from a pin, so never committed: the releases
+# and the registry are where a package lives.
+dist/
+
+# Agent worktrees
+/.worktrees/
+
+# Claude Code local state (personal settings, session/lock files)
+.claude/

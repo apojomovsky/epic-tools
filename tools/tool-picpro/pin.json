@@ -1,0 +1,51 @@
+{
+  "package": "tool-picpro",
+  "version": "0.4.1",
+  "description": "picpro: command line programmer software for the Kitsrus K150, K128, K149 and K182",
+  "keywords": [
+    "tools",
+    "uploader",
+    "pic",
+    "k150",
+    "picpro"
+  ],
+  "license": {
+    "spdx": "GPL-2.0-only",
+    "name": "GNU General Public License v2.0",
+    "file": "LICENSE"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Salamek/picpro.git"
+  },
+  "upstream": {
+    "url": "https://github.com/Salamek/picpro/archive/refs/tags/0.4.1.tar.gz",
+    "page": "https://github.com/Salamek/picpro",
+    "tag": "0.4.1",
+    "commit": "b364082dcf27d4f3eef072d24e4e6f0e69490ccd",
+    "sha256": "0ba094565f8cdd5ab368fde51255b45378dcacc3cfb1ca55879212ac85aec17e",
+    "extract_dir": "picpro-0.4.1"
+  },
+  "build": {
+    "kind": "python",
+    "requirement": ".",
+    "vendor_dir": "vendor",
+    "entry_point": "vendor/bin/picpro",
+    "interpreter": "python3.12",
+    "verify": {
+      "args": [
+        "picpro",
+        "--help"
+      ],
+      "expect_exit": 0
+    },
+    "constraints": "_constraints/tool-picpro.txt"
+  },
+  "systems": [
+    "linux_x86_64"
+  ],
+  "notes": "GPL-2.0, pure Python. picpro requires Python 3.12, above the 3.10 the C build image carries, so this pin builds in its own python:3.12-slim container. Runs under PlatformIO's own interpreter, so the package vendors the tool and each dependency (pyserial, docopt, intelhex, pyyaml, platformdirs) with pip's --target, which lands every dependency's dist-info beside its code; pyserial's wheel omits its licence text, so licences/pyserial-LICENSE.txt ships it explicitly. Requires K150 firmware speaking protocol P18A.",
+  "bundled_licences": [
+    "pyserial-LICENSE.txt"
+  ]
+}

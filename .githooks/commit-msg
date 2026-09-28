@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# commit-msg: reject auto-attribution trailers and em-dashes. Git history
+# is the record; the commit message is yours. Prose never uses em-dashes
+# (comma, colon, or period instead); ascii-art diagrams may.
+#
+# Install it with: make setup-hooks
+
+set -uo pipefail
+
+if grep -qiE '^(co-authored-by|coauthored-by|authored-by):' "$1"; then
+  echo "commit-msg: 'Co-Authored-By' and similar trailers are not allowed (see AGENTS.md)" >&2
+  exit 1
+fi
+
+if grep -q '—' "$1"; then
+  echo "commit-msg: em-dash (U+2014) in the commit message; use a comma, colon, or period (see AGENTS.md)" >&2
+  exit 1
+fi
+
+exit 0
