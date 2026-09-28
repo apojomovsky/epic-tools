@@ -217,7 +217,18 @@ def verify(pin, package_dir):
         log("licence banner present")
 
 
-def stage(pin, package_dir, source_dir):
+def fetch_pinned_data(pin, dest_dir):
+    """Download each data file pinned by URL, digest-checked like the archive."""
+    fetched = {}
+    for index, data in enumerate(toolpin.pinned_data_files(pin)):
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        destination = dest_dir / str(index)
+        fetch(data["url"], destination, data["sha256"])
+        fetched[data["url"]] = destination
+    return fetched
+
+
+def stage(pin, package_dir, source_dir, fetched):
     """Put the runtime pieces in place before the probe runs.
 
     Data files and bundled libraries land first because the probe executes the
@@ -225,9 +236,12 @@ def stage(pin, package_dir, source_dir):
     reports a failure that has nothing to do with the build.
     """
     for data in pin.get("data_files", []):
-        source = source_dir / data["from"]
-        if not source.exists():
-            raise SystemExit(f"data file {data['from']} missing from the upstream tree")
+        if data.get("url"):
+            source = fetched[data["url"]]
+        else:
+            source = source_dir / data["from"]
+            if not source.exists():
+                raise SystemExit(f"data file {data['from']} missing from the upstream tree")
         destination = package_dir / data["to"]
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
@@ -345,7 +359,7 @@ def build_in_container(pin_path, system, out_dir):
 
         # Layout before the probe: the tool has to find its data files and its
         # bundled libraries for the probe to mean anything.
-        stage(pin, package_dir, source_dir)
+        stage(pin, package_dir, source_dir, fetch_pinned_data(pin, tmp / "data"))
         verify(pin, package_dir)
 
         out_dir = pathlib.Path(out_dir)

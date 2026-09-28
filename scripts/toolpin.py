@@ -107,7 +107,32 @@ def validate(pin):
             problems.append("bundled_libraries entries must be names")
     if pin.get("notice") is not None and not str(pin["notice"]).strip():
         problems.append("notice is present but empty")
+    for index, data in enumerate(pin.get("data_files", [])):
+        problems += _data_file_problems(index, data)
     return problems
+
+
+def _data_file_problems(index, data):
+    """A data file comes from the upstream tree or from its own pinned URL.
+
+    The second form exists for data upstream ships but we must not: pk2cmd's
+    own PK2DeviceFile.dat is under a third-party copyright claim, so the
+    package carries Microchip's file from a separate, digest-checked source.
+    """
+    where = f"data_files[{index}]"
+    if not isinstance(data, dict) or not str(data.get("to", "")).strip():
+        return [f"{where} must be an object naming its destination in 'to'"]
+    has_from, has_url = bool(data.get("from")), bool(data.get("url"))
+    if has_from == has_url:
+        return [f"{where} needs exactly one of 'from' (upstream tree) or 'url'"]
+    if has_url and not _SHA256.fullmatch(str(data.get("sha256", ""))):
+        return [f"{where} fetched by url needs a lowercase hex sha256"]
+    return []
+
+
+def pinned_data_files(pin):
+    """The data files fetched from their own URL rather than the upstream tree."""
+    return [data for data in pin.get("data_files", []) if data.get("url")]
 
 
 def patch_queue(pin_dir):
@@ -169,6 +194,12 @@ def source_reference(pin):
         f"commit: {upstream['commit']}",
         f"source archive: {upstream['url']}",
         f"source archive sha256: {upstream['sha256']}",
+        *(line for data in pinned_data_files(pin) for line in (
+            f"data file {data['to']}: {data['url']}",
+            f"data file {data['to']} sha256: {data['sha256']}",
+            *([f"data file {data['to']} origin: {data['origin']}"]
+              if data.get("origin") else []),
+        )),
         f"packaged by: https://github.com/apojomovsky/epic-tools",
         "",
     ])
