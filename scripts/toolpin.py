@@ -107,8 +107,16 @@ def validate(pin):
             problems.append("bundled_libraries entries must be names")
     if pin.get("notice") is not None and not str(pin["notice"]).strip():
         problems.append("notice is present but empty")
+    destinations = set()
     for index, data in enumerate(pin.get("data_files", [])):
         problems += _data_file_problems(index, data)
+        if isinstance(data, dict) and data.get("to"):
+            # Staged in order, so a repeated destination would silently let a
+            # later entry replace the file an earlier one pinned.
+            to = pathlib.PurePosixPath(str(data["to"])).as_posix()
+            if to in destinations:
+                problems.append(f"data_files[{index}] repeats destination {to!r}")
+            destinations.add(to)
     return problems
 
 
@@ -127,6 +135,10 @@ def _data_file_problems(index, data):
         return [f"{where} needs exactly one of 'from' (upstream tree) or 'url'"]
     if has_url and not _SHA256.fullmatch(str(data.get("sha256", ""))):
         return [f"{where} fetched by url needs a lowercase hex sha256"]
+    if has_url and not str(data.get("origin", "")).strip():
+        # The upstream archive's provenance is its tag and commit; a file
+        # fetched on its own has only this line in SOURCE.txt to carry it.
+        return [f"{where} fetched by url needs an origin naming what it is"]
     return []
 
 
@@ -197,8 +209,7 @@ def source_reference(pin):
         *(line for data in pinned_data_files(pin) for line in (
             f"data file {data['to']}: {data['url']}",
             f"data file {data['to']} sha256: {data['sha256']}",
-            *([f"data file {data['to']} origin: {data['origin']}"]
-              if data.get("origin") else []),
+            f"data file {data['to']} origin: {data['origin']}",
         )),
         f"packaged by: https://github.com/apojomovsky/epic-tools",
         "",

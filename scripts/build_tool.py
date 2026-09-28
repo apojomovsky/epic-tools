@@ -224,7 +224,7 @@ def fetch_pinned_data(pin, dest_dir):
         dest_dir.mkdir(parents=True, exist_ok=True)
         destination = dest_dir / str(index)
         fetch(data["url"], destination, data["sha256"])
-        fetched[data["url"]] = destination
+        fetched[data["to"]] = destination
     return fetched
 
 
@@ -237,7 +237,7 @@ def stage(pin, package_dir, source_dir, fetched):
     """
     for data in pin.get("data_files", []):
         if data.get("url"):
-            source = fetched[data["url"]]
+            source = fetched[data["to"]]
         else:
             source = source_dir / data["from"]
             if not source.exists():
