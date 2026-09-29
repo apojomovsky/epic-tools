@@ -20,8 +20,11 @@ repository is epic-platformio#40, and `tool-minipro`, `tool-pk2cmd` and
 
 The D-10 rule that shapes everything here: **a pinned upstream tag plus a
 patch directory, never a long-lived fork.** If a change is needed, it lands as
-a numbered patch, gets sent upstream, and the pin moves when it lands. A patch
+a numbered patch, is offered upstream, and the pin moves when it lands. A patch
 queue that keeps growing is the failure mode this design exists to avoid.
+Offering a patch upstream is the human's step, never an agent's (Ground
+rules): the agent files a `dispatch-only` issue carrying the patch and a draft
+message, and stops there.
 
 ## Picking up work
 
@@ -152,6 +155,13 @@ outstanding. Don't skip it.
 - **Nothing but docker runs on the host.** Same rule as the rest of the
   ecosystem: no compiler, no PlatformIO, no Python packages installed to build
   a package. `scripts/build_tool.py` drives the container.
+- **Never post to a third-party repository.** No issue, pull request, comment,
+  review or fork outside the `apojomovsky/epic-*` repositories, and no contact
+  with upstream maintainers, unless the human explicitly asks for that specific
+  post, separately from any plan. Every upstream this repository pins is third
+  party. Upstream work worth doing becomes a `dispatch-only` issue with the
+  draft text, and stops there (canonical: epic-tasks' `AGENTS.md`,
+  "Third-party repositories").
 
 ## Expression conventions (comments and docs)
 
@@ -190,8 +200,9 @@ itself.
 1. `tools/<package>/pin.json`: upstream url, page, tag, commit and the archive
    sha256; the licence and the file it ships; the build kind and its output;
    the systems.
-2. Any patch the pinned tag needs goes in `tools/<package>/patches/`, numbered
-   and sent upstream.
+2. Any patch the pinned tag needs goes in `tools/<package>/patches/`,
+   numbered, with a `dispatch-only` issue proposing it upstream (the human
+   sends it, never an agent).
 3. If the licence requires a visible notice, set `build.verify` with the
    argument that prints it and `banner_must_match`, so the build refuses to
    package a binary that does not carry it.
