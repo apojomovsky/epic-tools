@@ -40,8 +40,8 @@ licence, and what a build should produce.
 
 When a change is needed before it reaches upstream, it lands as a numbered
 patch in that tool's `patches/` directory rather than as a long-lived fork.
-The queue is meant to be short: each patch is sent upstream, and the pin moves
-forward when it lands. An empty `patches/` is the goal state, not an
+The queue is meant to be short: each patch is offered upstream by the human
+(never by an agent, see `AGENTS.md`), and the pin moves forward when it lands. An empty `patches/` is the goal state, not an
 unfinished one.
 
 The digest is checked before anything unpacks it. A silently re-cut upstream

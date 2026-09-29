@@ -5,7 +5,8 @@ names it uses are importlib.resources.abc.Traversable (a submodule only
 since 3.11) and typing.Self (added in 3.11). The platform runs this tool
 under its own interpreter, which can be 3.10, so both fall back to their
 3.10 spellings. 3.9 stays out: PEP 604 unions are used throughout without
-a future import. Sent upstream so the queue can shrink.
+a future import. Reported upstream as Salamek/picpro#54; the queue shrinks
+when a fix lands there.
 
 diff --git a/picpro/bin/picpro.py b/picpro/bin/picpro.py
 --- a/picpro/bin/picpro.py	2026-09-29 15:02:25.666933132 -0300
