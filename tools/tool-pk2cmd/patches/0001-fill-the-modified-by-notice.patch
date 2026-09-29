@@ -6,8 +6,8 @@ notice is prominently posted where end users will see it. Upstream's own
 `-?l` banner already prints that notice text, but with Microchip's literal
 `[INSERT YOUR NAME, DATE OF SOFTWARE MODIFICATION HERE]` placeholder, which
 satisfies nothing. This patch names the modifier, so the banner carries a
-complete notice rather than a template. Sent upstream so the queue can
-shrink.
+complete notice rather than a template. To be offered upstream by the human
+so the queue can shrink.
 
 --- a/pk2cmd/cmd_app.cpp
 +++ b/pk2cmd/cmd_app.cpp
