@@ -1,0 +1,69 @@
+Python 3.10 compatibility: fall back for the two 3.11-only names.
+
+picpro 0.4.1 declares requires-python >= 3.12, but the only 3.11-only
+names it uses are importlib.resources.abc.Traversable (a submodule only
+since 3.11) and typing.Self (added in 3.11). The platform runs this tool
+under its own interpreter, which can be 3.10, so both fall back to their
+3.10 spellings. 3.9 stays out: PEP 604 unions are used throughout without
+a future import. Sent upstream so the queue can shrink.
+
+diff --git a/picpro/bin/picpro.py b/picpro/bin/picpro.py
+--- a/picpro/bin/picpro.py	2026-09-29 15:02:25.666933132 -0300
++++ b/picpro/bin/picpro.py	2026-09-29 15:02:25.730049566 -0300
+@@ -50,7 +50,10 @@
+ from collections.abc import Callable
+ from functools import wraps
+ from importlib.resources import files
+-from importlib.resources.abc import Traversable
++try:
++    from importlib.resources.abc import Traversable
++except ImportError:
++    from importlib.abc import Traversable
+ from pathlib import Path
+ from typing import TypeVar
+ 
+diff --git a/picpro/ChipInfoReader.py b/picpro/ChipInfoReader.py
+--- a/picpro/ChipInfoReader.py	2026-09-29 15:02:25.666671292 -0300
++++ b/picpro/ChipInfoReader.py	2026-09-29 15:02:25.730191905 -0300
+@@ -1,6 +1,9 @@
+ import logging
+ import re
+-from importlib.resources.abc import Traversable
++try:
++    from importlib.resources.abc import Traversable
++except ImportError:
++    from importlib.abc import Traversable
+ from pathlib import Path
+ 
+ from picpro.ChipInfoEntry import ChipInfoEntry
+diff --git a/picpro/protocol/IConnection.py b/picpro/protocol/IConnection.py
+--- a/picpro/protocol/IConnection.py	2026-09-29 15:02:25.667204121 -0300
++++ b/picpro/protocol/IConnection.py	2026-09-29 15:03:24.221106494 -0300
+@@ -1,6 +1,11 @@
+ import time
+ from types import TracebackType
+-from typing import TYPE_CHECKING, Self
++from typing import TYPE_CHECKING
++try:
++    from typing import Self
++except ImportError:
++    from typing import TypeVar
++    Self = TypeVar("Self")
+ 
+ import serial
+ 
+diff --git a/picpro/protocol/IProgrammingInterface.py b/picpro/protocol/IProgrammingInterface.py
+--- a/picpro/protocol/IProgrammingInterface.py	2026-09-29 15:02:25.667329838 -0300
++++ b/picpro/protocol/IProgrammingInterface.py	2026-09-29 15:03:24.221585684 -0300
+@@ -1,5 +1,10 @@
+ from types import TracebackType
+-from typing import TYPE_CHECKING, Optional, Self
++from typing import TYPE_CHECKING, Optional
++try:
++    from typing import Self
++except ImportError:
++    from typing import TypeVar
++    Self = TypeVar("Self")
+ 
+ from picpro.ChipInfoEntry import ChipInfoEntry
+ from picpro.protocol.ChipConfig import ChipConfig

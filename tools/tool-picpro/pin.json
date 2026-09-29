@@ -44,7 +44,7 @@
   "systems": [
     "linux_x86_64"
   ],
-  "notes": "GPL-2.0, pure Python. picpro requires Python 3.12, above the 3.10 the C build image carries, so this pin builds in its own python:3.12-slim container. Runs under PlatformIO's own interpreter, so the package vendors the tool and each dependency (pyserial, docopt, intelhex, pyyaml, platformdirs) with pip's --target, which lands every dependency's dist-info beside its code; pyserial's wheel omits its licence text, so licences/pyserial-LICENSE.txt ships it explicitly. Requires K150 firmware speaking protocol P18A.",
+  "notes": "GPL-2.0, pure Python. picpro requires Python 3.12, above the 3.10 the C build image carries, so this pin builds in its own python:3.12-slim container. Runs under PlatformIO's own interpreter, so the package vendors the tool and each dependency (pyserial, docopt, intelhex, pyyaml, platformdirs) with pip's --target, which lands every dependency's dist-info beside its code; pyserial's wheel omits its licence text, so licences/pyserial-LICENSE.txt ships it explicitly. Verified floor at runtime is Python 3.10: patches/0001 shims the two 3.11-only imports (upstream suite passes 33 of 33 on 3.10); 3.9 stays out (PEP 604 annotations throughout). Requires K150 firmware speaking protocol P18A.",
   "bundled_licences": [
     "pyserial-LICENSE.txt"
   ]
