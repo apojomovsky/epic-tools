@@ -163,6 +163,19 @@ class ShippedPinsTest(unittest.TestCase):
             pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
             self.assertTrue(pin["license"]["file"], name)
 
+    def test_every_shipped_pin_routes_registry_links_here_not_upstream(self):
+        # Upstream never sees this build, so its tracker must not receive
+        # packaging reports; the manifest carries this repo instead.
+        for name in REAL_TOOLS:
+            pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
+            data = toolpin.manifest(pin, pin["systems"][0])
+            self.assertIn("github.com/apojomovsky/epic-tools",
+                          data["homepage"], name)
+            self.assertIn("github.com/apojomovsky/epic-tools",
+                          data["repository"]["url"], name)
+            self.assertTrue(pin["description"].startswith("epic8 build of"),
+                            name)
+
     def test_minipro_ships_its_source_tarball(self):
         pin = toolpin.load_pin(ROOT / "tools" / "tool-minipro" / "pin.json")
         self.assertTrue(pin["ship_source_tarball"])
@@ -265,6 +278,16 @@ class ManifestTest(unittest.TestCase):
     def test_an_spdx_id_carries_into_the_manifest(self):
         data = toolpin.manifest(base_pin(), "linux_x86_64")
         self.assertEqual(data["license"], "MIT")
+
+    def test_a_pin_homepage_overrides_the_upstream_page(self):
+        pin = base_pin()
+        pin["homepage"] = "https://example.invalid/tools"
+        data = toolpin.manifest(pin, "linux_x86_64")
+        self.assertEqual(data["homepage"], "https://example.invalid/tools")
+
+    def test_without_a_pin_homepage_the_upstream_page_is_kept(self):
+        data = toolpin.manifest(base_pin(), "linux_x86_64")
+        self.assertEqual(data["homepage"], "https://example.invalid/demo")
 
 
 class ArchiveNameTest(unittest.TestCase):

@@ -1,12 +1,19 @@
 {
   "package": "tool-picpro",
   "version": "0.4.1",
-  "description": "picpro: command line programmer software for the Kitsrus K150, K128, K149 and K182",
+  "description": "epic8 build of picpro, the Kitsrus K150 programmer software. Flash 8-bit PIC from pio run -t upload",
   "keywords": [
     "tools",
     "uploader",
     "pic",
+    "microchip",
+    "pic12",
+    "pic16",
+    "pic18",
     "k150",
+    "k128",
+    "k149",
+    "k182",
     "picpro"
   ],
   "license": {
@@ -14,9 +21,10 @@
     "name": "GNU General Public License v2.0",
     "file": "LICENSE"
   },
+  "homepage": "https://github.com/apojomovsky/epic-tools",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Salamek/picpro.git"
+    "url": "https://github.com/apojomovsky/epic-tools.git"
   },
   "upstream": {
     "url": "https://github.com/Salamek/picpro/archive/refs/tags/0.4.1.tar.gz",

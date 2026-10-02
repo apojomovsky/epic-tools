@@ -1,16 +1,17 @@
 {
   "package": "tool-minipro",
   "version": "0.7.4",
-  "description": "minipro: programmer software for the XGecu TL866 series (TL866A/CS, TL866II+, T48, T56)",
-  "keywords": ["tools", "uploader", "pic", "minipro", "xgecu"],
+  "description": "epic8 build of minipro, the XGecu TL866 programmer software. Flash 8-bit PIC from pio run -t upload",
+  "keywords": ["tools", "uploader", "pic", "microchip", "pic12", "pic16", "pic18", "tl866", "t48", "t56", "minipro", "xgecu"],
   "license": {
     "spdx": "GPL-3.0-or-later",
     "name": "GNU General Public License v3.0 or later",
     "file": "LICENSE"
   },
+  "homepage": "https://github.com/apojomovsky/epic-tools",
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/DavidGriffith/minipro.git"
+    "url": "https://github.com/apojomovsky/epic-tools.git"
   },
   "upstream": {
     "url": "https://gitlab.com/DavidGriffith/minipro/-/archive/0.7.4/minipro-0.7.4.tar.gz",
