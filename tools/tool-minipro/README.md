@@ -27,7 +27,7 @@ including udev rules and wiring, is in
 
 Every beta board flashes through this package: `pic12f675`, `pic16f1937`,
 `pic16f628a`, `pic16f877a`, `pic16f887` and `pic18f4550`. It drives the
-T48, T56, TL866II Plus and TL866A/CS. The TL866CS has no ICSP header, so it
+T48, TL866II Plus and TL866A/CS. The TL866CS has no ICSP header, so it
 programs loose chips in the ZIF socket only.
 
 ## One example
