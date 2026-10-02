@@ -25,11 +25,10 @@ footer = ""
 [git]
 conventional_commits = true
 filter_unconventional = false
-split_commits = false
 commit_parsers = [
+  { message = "^[^:()]+(\\([^)]*\\))?!:", group = "Breaking" },
   { message = "^feat", group = "Features" },
-  { message = "^fix", group = "Bug Fixes" },
-  { message = "^perf", group = "Performance" },
+  { message = "^fix", group = "Fixes" },
   { message = "^refactor", group = "Refactor" },
   { message = "^docs", group = "Documentation" },
   { message = "^test", group = "Testing" },
@@ -39,6 +38,6 @@ commit_parsers = [
 ]
 protect_breaking_commits = true
 filter_commits = false
-tag_pattern = "^tool-[a-z0-9]+-v[0-9]+\\.[0-9]+\\.[0-9]+$"
+tag_pattern = "^tool-[a-z0-9]+-v[0-9]+\\.[0-9]+\\.[0-9]+(\\+pio[0-9]+)?$"
 topo_order = false
 sort_commits = "oldest"
