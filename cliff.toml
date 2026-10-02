@@ -29,6 +29,7 @@ commit_parsers = [
   { message = "^[^:()]+(\\([^)]*\\))?!:", group = "Breaking" },
   { message = "^feat", group = "Features" },
   { message = "^fix", group = "Fixes" },
+  { message = "^perf", group = "Performance" },
   { message = "^refactor", group = "Refactor" },
   { message = "^docs", group = "Documentation" },
   { message = "^test", group = "Testing" },
