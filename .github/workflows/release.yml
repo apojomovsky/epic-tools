@@ -102,6 +102,8 @@ jobs:
         if: steps.scope.outputs.selected == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
         run: |
           tool="${{ matrix.tool }}"
           version="$(python3 -c "
@@ -121,17 +123,37 @@ jobs:
                         else '/releases/tag/' + tag))
           ")"
           tag="${tool}-v${version}"
+          if [ "$EVENT" = "push" ] && [ "$REF" != "$tag" ]; then
+            # The pin is the version truth, so a tag naming another version
+            # fails here rather than publishing something the pin does not name.
+            echo "::error::tag $REF does not match the pin ($tag); bump tools/$tool/pin.json first"
+            exit 1
+          fi
+          compat="$(python3 -c "
+          import sys; sys.path.insert(0, 'scripts')
+          import toolpin
+          pin = toolpin.load_pin('tools/${tool}/pin.json')
+          core, rev = toolpin.split_package_version(pin['version'])
+          tag = pin['upstream']['tag']
+          if rev is None:
+              print('Wraps upstream ' + tag + ': the first packaging of that upstream.')
+          else:
+              print('Wraps upstream ' + tag + ': packaging revision ' + rev + ', no new upstream.')
+          ")"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist/*.tar.gz --clobber
           else
             {
               echo "Built from $upstream"
               echo
+              echo "## Compatibility"
+              echo "$compat"
+              echo
               echo "Pinned upstream tag, patch queue, licence and redistribution"
               echo "notes: \`tools/${tool}/pin.json\`."
             } > /tmp/notes.md
             gh release create "$tag" dist/*.tar.gz \
-              --title "${tool} ${version}" --notes-file /tmp/notes.md
+              --title "${tool} v${version}" --notes-file /tmp/notes.md
           fi
 
       - name: Publish to the PlatformIO registry

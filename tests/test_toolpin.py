@@ -273,6 +273,67 @@ class ArchiveNameTest(unittest.TestCase):
         self.assertEqual(name, "tool-demo-linux_x86_64-1.2.3.tar.gz")
 
 
+class VersionSchemeTest(unittest.TestCase):
+    """The package version names its upstream, bare first, +pioN after that."""
+
+    def test_a_bare_upstream_version_validates(self):
+        pin = base_pin()
+        pin["version"] = "1.2.3"
+        self.assertEqual(toolpin.validate(pin), [])
+
+    def test_a_packaging_revision_validates(self):
+        pin = base_pin()
+        pin["version"] = "1.2.3+pio1"
+        self.assertEqual(toolpin.validate(pin), [])
+
+    def test_shapes_outside_the_scheme_are_rejected(self):
+        for version in ("1.2", "1.2.3.4", "v1.2.3", "1.02.3",
+                        "1.2.3-pio.1", "1.2.3+pio0", "1.2.3+build",
+                        "1.2.3+pio", ""):
+            pin = base_pin()
+            pin["version"] = version
+            self.assertTrue(toolpin.validate(pin), version)
+
+    def test_a_tag_with_a_v_prefix_and_zeros_folds_to_the_version(self):
+        self.assertEqual(toolpin.upstream_version("v1.27.01"), "1.27.1")
+
+    def test_a_plain_tag_folds_to_itself(self):
+        self.assertEqual(toolpin.upstream_version("0.7.4"), "0.7.4")
+
+    def test_a_tag_with_no_plain_version_folds_to_nothing(self):
+        self.assertIsNone(toolpin.upstream_version("nightly"))
+
+    def test_a_version_from_another_upstream_is_rejected(self):
+        pin = base_pin()
+        pin["version"] = "1.2.4"
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("upstream.tag" in p for p in problems))
+
+    def test_a_packaging_revision_of_the_pinned_upstream_validates(self):
+        pin = base_pin()
+        pin["version"] = "1.2.3+pio2"
+        self.assertEqual(toolpin.validate(pin), [])
+
+    def test_a_packaging_revision_of_another_upstream_is_rejected(self):
+        pin = base_pin()
+        pin["upstream"]["tag"] = "v1.2.4"
+        pin["version"] = "1.2.3+pio1"
+        self.assertTrue(toolpin.validate(pin))
+
+    def test_every_shipped_pin_names_its_own_upstream(self):
+        for name in REAL_TOOLS:
+            pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
+            core, _ = toolpin.split_package_version(pin["version"])
+            self.assertEqual(core, toolpin.upstream_version(pin["upstream"]["tag"]), name)
+
+    def test_the_manifest_and_archive_carry_the_full_revision(self):
+        pin = base_pin()
+        pin["version"] = "1.2.3+pio1"
+        self.assertEqual(toolpin.manifest(pin, "linux_x86_64")["version"], "1.2.3+pio1")
+        self.assertEqual(toolpin.archive_name(pin, "linux_x86_64"),
+                         "tool-demo-linux_x86_64-1.2.3+pio1.tar.gz")
+
+
 class SourceReferenceTest(unittest.TestCase):
     def test_the_reference_names_the_tag_commit_and_digest(self):
         text = toolpin.source_reference(base_pin())

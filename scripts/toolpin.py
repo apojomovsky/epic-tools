@@ -35,6 +35,35 @@ REQUIRED = (
 )
 _REQUIRED_UPSTREAM = ("url", "page", "tag", "commit", "sha256", "extract_dir")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_VERSION = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(\+pio([1-9]\d*))?")
+
+
+def split_package_version(version):
+    """(upstream core, revision or None); None when the shape is wrong.
+
+    Bare X.Y.Z for the first packaging of an upstream, +pioN after that.
+    Any other shape could reuse a served number, so it does not validate.
+    """
+    match = _VERSION.fullmatch(str(version).strip())
+    if not match:
+        return None
+    core = f"{match.group(1)}.{match.group(2)}.{match.group(3)}"
+    return (core, match.group(5))
+
+
+def upstream_version(tag):
+    """The X.Y.Z a tag names, or None for a tag with no plain version.
+
+    Folds the leading v and leading zeros (v1.27.01 folds to 1.27.1), since
+    SemVer forbids both and the pin compares folded forms.
+    """
+    text = str(tag).strip()
+    if text[:1] in ("v", "V"):
+        text = text[1:]
+    parts = text.split(".")
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        return None
+    return ".".join(str(int(part)) for part in parts)
 
 
 class PinError(ValueError):
@@ -67,8 +96,9 @@ def validate(pin):
     if problems:
         return problems
 
-    if not str(pin["version"]).strip():
-        problems.append("version is empty")
+    split = split_package_version(pin["version"])
+    if split is None:
+        problems.append("version must be X.Y.Z, bare or with a +pioN packaging revision")
     license_spec = pin["license"]
     if not isinstance(license_spec, dict) or not license_spec.get("file"):
         problems.append("license must name the upstream file it ships")
@@ -88,6 +118,12 @@ def validate(pin):
         digest = str(upstream.get("sha256", ""))
         if digest and not _SHA256.fullmatch(digest):
             problems.append("upstream.sha256 is not a lowercase hex sha256")
+        if split is not None and str(upstream.get("tag", "")).strip():
+            core = upstream_version(upstream.get("tag", ""))
+            if core is None:
+                problems.append("upstream.tag is not a plain X.Y.Z version")
+            elif core != split[0]:
+                problems.append(f"version names {split[0]} but upstream.tag names {core}")
 
     build = pin["build"]
     if not isinstance(build, dict) or build.get("kind") not in BUILD_KINDS:
