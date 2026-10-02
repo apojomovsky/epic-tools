@@ -1,21 +1,29 @@
 {
   "package": "tool-pk2cmd",
   "version": "1.27.1",
-  "description": "pk2cmd: command line software for the PICkit2, PICkit3 and PKOB programmers",
+  "description": "epic8 build of pk2cmd, the PICkit2 and PICkit3 command line programmer. Flash 8-bit PIC from pio run -t upload",
   "keywords": [
     "tools",
     "uploader",
     "pic",
+    "microchip",
+    "pic12",
+    "pic16",
+    "pic18",
     "pickit",
+    "pickit2",
+    "pickit3",
+    "pkob",
     "pk2cmd"
   ],
   "license": {
     "name": "Microchip PK2CMD Software License",
     "file": "license.txt"
   },
+  "homepage": "https://github.com/apojomovsky/epic-tools",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jaka-fi/pk2cmd.git"
+    "url": "https://github.com/apojomovsky/epic-tools.git"
   },
   "upstream": {
     "url": "https://github.com/jaka-fi/pk2cmd/archive/refs/tags/v1.27.01.tar.gz",

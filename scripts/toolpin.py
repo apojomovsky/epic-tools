@@ -216,7 +216,9 @@ def manifest(pin, system, version=None):
         "version": version or pin["version"],
         "description": pin["description"],
         "system": systems_of(pin, system),
-        "homepage": pin["upstream"]["page"],
+        # A pin may point homepage at this repo so the registry routes
+        # packaging issues here instead of the upstream tracker.
+        "homepage": pin.get("homepage") or pin["upstream"]["page"],
         "repository": pin.get("repository") or {
             "type": "git", "url": pin["upstream"]["page"],
         },

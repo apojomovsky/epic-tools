@@ -272,10 +272,12 @@ def stage(pin, package_dir, source_dir, fetched):
 
 
 def assemble(pin, system, package_dir, source_dir, archive_path, patches):
-    """Write the licence, the source reference and the manifest, then tar.
+    """Write the licence, the source reference, the README and the manifest, then tar.
 
     Every package ships its licence and a source reference (D-10), so both are
-    written here rather than left to whoever builds by hand.
+    written here rather than left to whoever builds by hand. The README goes
+    in for the same reason: the registry renders it, so a package without one
+    reads as an empty page.
     """
     licence_file = pin["license"]["file"]
     licence_src = source_dir / licence_file
@@ -293,6 +295,10 @@ def assemble(pin, system, package_dir, source_dir, archive_path, patches):
             raise SystemExit(f"declared licence file {licence} is missing from the pin directory")
         shutil.copy2(source, package_dir / licence)
 
+    readme = REPO_ROOT / "tools" / pin["package"] / "README.md"
+    if not readme.exists():
+        raise SystemExit(f"package README {readme} missing, the registry renders it")
+    shutil.copy2(readme, package_dir / "README.md")
     manifest = toolpin.manifest(pin, system)
     (package_dir / "package.json").write_text(json.dumps(manifest, indent=2) + "\n")
     if patches:
