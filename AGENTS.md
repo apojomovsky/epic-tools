@@ -200,8 +200,9 @@ itself.
 ## Adding a tool
 
 1. `tools/<package>/pin.json`: upstream url, page, tag, commit and the archive
-   sha256; the licence and the file it ships; the build kind and its output;
-   the systems.
+   sha256; the version, which names the upstream tag (see Versioning and
+   releases); the licence and the file it ships; the build kind and its
+   output; the systems.
 2. Any patch the pinned tag needs goes in `tools/<package>/patches/`,
    numbered, with a `dispatch-only` issue in this repository carrying the
    patch and a draft message for the human to send upstream (never an agent).
@@ -212,3 +213,23 @@ itself.
    rules.
 5. A new tool is a new ticket on the board, filed in epic-platformio, before
    the PR that adds it.
+
+## Versioning and releases
+
+The `version` in `tools/<package>/pin.json` is the version truth: it names
+the upstream X.Y.Z, bare for the first packaging of that upstream and with
+a `+pioN` packaging revision after that (`0.7.4`, then `0.7.4+pio1`). A new
+upstream returns to the bare version, never a higher revision. `toolpin.py`
+rejects any version that does not fold to the pinned `upstream.tag`
+(`v1.27.01` folds to `1.27.1`), and a packaging fix never reuses a served
+number. Consumers pin exact versions, never ranges.
+
+A release is a `<tool>-v<version>` tag carrying the full string
+(`tool-minipro-v0.7.4+pio1`); `release.yml` refuses a tag that does not
+match the pin, so the tag is never ahead of the file. Titles are
+`<package> v<version>`. Notes follow Breaking, Features, Fixes,
+Performance, Compatibility, omitting empty sections, and Compatibility
+names the wrapped upstream tag.
+
+`devfile-*` releases are versioned device data, not tools: they keep their
+own data titles and sit outside this scheme.

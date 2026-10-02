@@ -103,10 +103,16 @@ beta part but not the MSB-first (MSB1st) families; for those, point
 
 ## Releasing
 
-A tag `<tool>-v<version>` runs `release.yml`, which builds the package,
-verifies the licence and source reference are in the archive, attaches it to a
-GitHub Release, and publishes it to the PlatformIO registry. A manual
+A tag `<tool>-v<version>` runs `release.yml`, which refuses a tag that does
+not match the pin, builds the package, verifies the licence and source
+reference are in the archive, attaches it to a GitHub Release titled
+`<package> v<version>`, and publishes it to the PlatformIO registry. A manual
 `workflow_dispatch` does the same for one tool or all of them.
+
+The version names the wrapped upstream: bare for the first packaging of that
+upstream, plus a `+pioN` packaging revision for a fix with no new upstream
+(`1.27.1+pio1`). A new upstream returns to the bare version. `devfile-*`
+releases are versioned device data and keep their own titles.
 
 **Registry publication needs a secret no workflow can create for itself.**
 Add `PLATFORMIO_AUTH_TOKEN` to this repository's Actions secrets, from
