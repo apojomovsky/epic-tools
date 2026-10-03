@@ -1,7 +1,7 @@
 {
   "package": "tool-pk2cmd",
   "version": "1.27.1",
-  "description": "epic8 build of pk2cmd, the PICkit2 and PICkit3 command line programmer. Flash 8-bit PIC from pio run -t upload",
+  "description": "Unofficial epic8 package of pk2cmd by Microchip, maintained by jaka-fi, the PICkit2 and PICkit3 command line programmer. Flash 8-bit PIC from pio run -t upload",
   "keywords": [
     "tools",
     "uploader",
