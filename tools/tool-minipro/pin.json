@@ -1,6 +1,6 @@
 {
   "package": "tool-minipro",
-  "version": "0.7.4",
+  "version": "0.7.4+pio1",
   "description": "Unofficial epic8 package of minipro by Valentin Dudouyt and David Griffith, the XGecu TL866 programmer software. Flash 8-bit PIC from pio run -t upload",
   "keywords": ["tools", "uploader", "pic", "microchip", "pic12", "pic16", "pic18", "tl866", "t48", "minipro", "xgecu"],
   "license": {
