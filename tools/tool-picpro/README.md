@@ -24,8 +24,8 @@ Seat the chip in the K150 ZIF socket, then:
 pio run -t upload
 ```
 
-Selecting the protocol will pull this package automatically once the
-platform declares it; until then put it on `PATH` or point
+Selecting the protocol pulls this package automatically. To use your
+own install instead, put it on `PATH` or point
 `EPIC8_PICPRO_PATH` at it. The K150 must
 run P18A firmware; older firmware is not supported. The full guide is in
 [`docs/programmers/picpro.md`](https://github.com/apojomovsky/epic-platformio/blob/master/docs/programmers/picpro.md).
