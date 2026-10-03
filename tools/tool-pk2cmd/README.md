@@ -1,8 +1,8 @@
 # tool-pk2cmd
 
 Unofficial repackaging. We don't develop pk2cmd; it is the work of
-Microchip Technology Inc., maintained in the jaka-fi fork
-([jaka-fi/pk2cmd](https://github.com/jaka-fi/pk2cmd)), under Microchip's
+Microchip Technology Inc. (jaka-fi fork,
+[jaka-fi/pk2cmd](https://github.com/jaka-fi/pk2cmd)), under Microchip's
 PK2CMD licence. Not affiliated with or endorsed by them.
 
 An epic8 build of pk2cmd, the PICkit2 and PICkit3 command line
