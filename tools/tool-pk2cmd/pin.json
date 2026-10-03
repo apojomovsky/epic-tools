@@ -26,12 +26,12 @@
     "url": "https://github.com/apojomovsky/epic-tools.git"
   },
   "upstream": {
-    "url": "https://github.com/jaka-fi/pk2cmd/archive/refs/tags/v1.27.01.tar.gz",
+    "url": "https://github.com/jaka-fi/pk2cmd/archive/29747767fd08dcc209cb79c7592ad39be5a0419e.tar.gz",
     "page": "https://github.com/jaka-fi/pk2cmd",
     "tag": "v1.27.01",
     "commit": "29747767fd08dcc209cb79c7592ad39be5a0419e",
-    "sha256": "7229b277cbe449ff951132e1c399f0f37f6b2154533cda3f8652ad3c105e7d4b",
-    "extract_dir": "pk2cmd-1.27.01"
+    "sha256": "fb746e2b446c3c5ec44879bcd9a81ffcf0bf0028448c60aa8ffb901756740c61",
+    "extract_dir": "pk2cmd-29747767fd08dcc209cb79c7592ad39be5a0419e"
   },
   "build": {
     "kind": "make",
