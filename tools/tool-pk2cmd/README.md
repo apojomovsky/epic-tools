@@ -1,5 +1,10 @@
 # tool-pk2cmd
 
+Unofficial repackaging. We don't develop pk2cmd; it is the work of
+Microchip Technology Inc., maintained in the jaka-fi fork
+([jaka-fi/pk2cmd](https://github.com/jaka-fi/pk2cmd)), under Microchip's
+PK2CMD licence. Not affiliated with or endorsed by them.
+
 An epic8 build of pk2cmd, the PICkit2 and PICkit3 command line
 programmer. Flash 8-bit PIC from `pio run -t upload`, with no build
 step on your side.
@@ -49,12 +54,12 @@ pio run -t readback   # dump flash to .pio/build/<env>/readback.hex
 
 ## Where to report problems
 
-Packaging problems (wrong files in this package, install failures) belong
-in [epic-tools](https://github.com/apojomovsky/epic-tools/issues).
-Programmer bugs belong upstream, at
-[jaka-fi/pk2cmd](https://github.com/jaka-fi/pk2cmd).
-Upstream did not make this build and is not responsible for it: check
-with the epic-tools tracker first if you are unsure where a fault lies.
+Report every problem with this package to
+[epic-tools](https://github.com/apojomovsky/epic-tools/issues) first. We
+triage it and forward only confirmed upstream bugs to
+[jaka-fi/pk2cmd](https://github.com/jaka-fi/pk2cmd). The upstream authors
+did not make this build and are not responsible for it, so please don't
+file package issues on their tracker.
 
 Note: pk2cmd is Microchip-licensed, not open source. Redistribution for
 use with Microchip products is permitted with the notice the package

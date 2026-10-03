@@ -1,7 +1,7 @@
 {
   "package": "tool-picpro",
   "version": "0.4.1",
-  "description": "epic8 build of picpro, the Kitsrus K150 programmer software. Flash 8-bit PIC from pio run -t upload",
+  "description": "Unofficial epic8 package of picpro by Adam Schubert (Salamek), the Kitsrus K150 programmer software. Flash 8-bit PIC from pio run -t upload",
   "keywords": [
     "tools",
     "uploader",

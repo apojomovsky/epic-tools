@@ -1,5 +1,10 @@
 # tool-minipro
 
+Unofficial repackaging. We don't develop minipro; it is the work of
+Valentin Dudouyt, maintained today by David Griffith
+([DavidGriffith/minipro](https://gitlab.com/DavidGriffith/minipro)),
+under GPL-3.0-or-later. Not affiliated with or endorsed by them.
+
 An epic8 build of minipro, the XGecu TL866 programmer software. Flash
 8-bit PIC from `pio run -t upload`, with no build step on your side.
 
@@ -46,9 +51,9 @@ pio run -t readback   # dump flash to .pio/build/<env>/readback.hex
 
 ## Where to report problems
 
-Packaging problems (wrong files in this package, install failures) belong
-in [epic-tools](https://github.com/apojomovsky/epic-tools/issues).
-Programmer or device-database bugs belong upstream, at
-[DavidGriffith/minipro](https://gitlab.com/DavidGriffith/minipro).
-Upstream did not make this build and is not responsible for it: check
-with the epic-tools tracker first if you are unsure where a fault lies.
+Report every problem with this package to
+[epic-tools](https://github.com/apojomovsky/epic-tools/issues) first. We
+triage it and forward only confirmed upstream bugs to
+[DavidGriffith/minipro](https://gitlab.com/DavidGriffith/minipro). The
+upstream authors did not make this build and are not responsible for it,
+so please don't file package issues on their tracker.

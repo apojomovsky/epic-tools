@@ -165,7 +165,8 @@ class ShippedPinsTest(unittest.TestCase):
 
     def test_every_shipped_pin_routes_registry_links_here_not_upstream(self):
         # Upstream never sees this build, so its tracker must not receive
-        # packaging reports; the manifest carries this repo instead.
+        # packaging reports; the manifest carries this repo instead, and the
+        # description says plainly that the package is unofficial.
         for name in REAL_TOOLS:
             pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
             data = toolpin.manifest(pin, pin["systems"][0])
@@ -173,7 +174,7 @@ class ShippedPinsTest(unittest.TestCase):
                           data["homepage"], name)
             self.assertIn("github.com/apojomovsky/epic-tools",
                           data["repository"]["url"], name)
-            self.assertTrue(pin["description"].startswith("epic8 build of"),
+            self.assertTrue(pin["description"].startswith("Unofficial epic8 package of"),
                             name)
 
     def test_minipro_ships_its_source_tarball(self):
