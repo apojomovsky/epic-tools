@@ -1,6 +1,6 @@
 {
   "package": "tool-picpro",
-  "version": "0.4.1+pio2",
+  "version": "0.4.1+pio3",
   "description": "Unofficial epic8 package of picpro by Adam Schubert (Salamek), the Kitsrus K150 programmer software. Flash 8-bit PIC from pio run -t upload",
   "keywords": [
     "tools",
@@ -50,9 +50,10 @@
     "constraints": "_constraints/tool-picpro.txt"
   },
   "systems": [
-    "linux_x86_64"
+    "linux_x86_64",
+    "windows_amd64"
   ],
-  "notes": "GPL-2.0, pure Python. picpro requires Python 3.12, above the 3.10 the C build image carries, so this pin builds in its own python:3.12-slim container. Runs under PlatformIO's own interpreter, so the package vendors the tool and each dependency (pyserial, docopt, intelhex, pyyaml, platformdirs) with pip's --target, which lands every dependency's dist-info beside its code; pyserial's wheel omits its licence text, so licences/pyserial-LICENSE.txt ships it explicitly. Verified floor at runtime is Python 3.10: patches/0001 shims the two 3.11-only imports (upstream suite passes 33 of 33 on 3.10); 3.9 stays out (PEP 604 annotations throughout). Requires K150 firmware speaking protocol P18A.",
+  "notes": "GPL-2.0, pure Python. picpro requires Python 3.12, above the 3.10 the C build image carries, so this pin builds in its own python:3.12-slim container. Runs under PlatformIO's own interpreter, so the package vendors the tool and each dependency (pyserial, docopt, intelhex, pyyaml, platformdirs) with pip's --target, which lands every dependency's dist-info beside its code; pyserial's wheel omits its licence text, so licences/pyserial-LICENSE.txt ships it explicitly. Verified floor at runtime is Python 3.10: patches/0001 shims the two 3.11-only imports (upstream suite passes 33 of 33 on 3.10); 3.9 stays out (PEP 604 annotations throughout). Requires K150 firmware speaking protocol P18A. The windows_amd64 package vendors the same tree minus its host-tagged .so files, so it imports on any interpreter the floor allows.",
   "bundled_licences": [
     "pyserial-LICENSE.txt"
   ]

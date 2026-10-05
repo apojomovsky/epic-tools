@@ -54,7 +54,8 @@ Nothing but docker is needed on the host; the toolchain lives in the pinned
 build image.
 
 ```bash
-make build                              # every tool, linux_x86_64, into dist/
+make build                              # every tool into dist/ (SYSTEM picks the host)
+make build SYSTEM=windows_amd64         # the Windows set
 make build-tool TOOL=tool-minipro       # one tool
 make test                               # the suite CI runs
 ```
@@ -63,9 +64,11 @@ Each build fetches the pinned archive, verifies its digest, applies the patch
 queue, builds in a container, and writes a PlatformIO package. The C tools
 build in `docker/build/Dockerfile`, pinned by digest to `ubuntu:22.04`: a
 released binary inherits that image's glibc as its compatibility floor, which
-is why the base is pinned rather than tracking a tag. `picpro` is pure Python
-and needs 3.12, above that image's 3.10, so it builds in its own
-`docker/build/python.Dockerfile`.
+is why the base is pinned rather than tracking a tag. Their Windows builds
+cross-compile with mingw-w64 in `docker/build/windows.Dockerfile`, on the
+same base: a PE binary inherits no glibc floor, so one base serves both.
+`picpro` is pure Python and needs 3.12, above that image's 3.10, so it builds
+in its own `docker/build/python.Dockerfile`.
 
 ## What every package ships
 
@@ -134,8 +137,9 @@ upload_protocol = minipro
 Early. The repository skeleton, the patch-queue build and the per-host
 publishing path are in place; the individual tool packages are tracked as
 epic-platformio#41 (`tool-minipro`), #42 (`tool-pk2cmd`) and #43
-(`tool-picpro`). Only `linux_x86_64` is built; the pins and the workflow
-already carry the `system` field a Windows host needs.
+(`tool-picpro`). Both `linux_x86_64` and `windows_amd64` are built: the C
+tools cross-compile with mingw-w64, and `picpro` vendors the same tree minus
+its host-tagged binaries.
 
 ## Licence
 

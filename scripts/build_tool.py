@@ -35,6 +35,7 @@ import toolpin  # noqa: E402
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMAGE_TAG = "epic-tools-build:local"
 PYTHON_IMAGE_TAG = "epic-tools-build-python:local"
+WINDOWS_IMAGE_TAG = "epic-tools-build-windows:local"
 
 # One image per build kind. A C tool needs a header-level-compatible base,
 # which is why that image is pinned to the glibc floor epic-cc's toolchain
@@ -116,7 +117,7 @@ def run_make(source_dir, pin, system):
     lets the bundled library be found without LD_LIBRARY_PATH and without a
     host-wide install.
     """
-    build = pin["build"]
+    build = toolpin.effective_build(pin, system)
     work_dir = source_dir / build.get("subdir", ".")
     # Single quotes survive make into the recipe's shell and hold the token
     # literal. Unquoted, make collapses the doubled dollar to one and the
@@ -126,9 +127,16 @@ def run_make(source_dir, pin, system):
     # A command-line LDFLAGS replaces whatever the upstream Makefile set,
     # including the link library it configured, so a pin whose Makefile needs
     # one states it in build.ldflags rather than losing it to the override.
-    ldflags = build.get("ldflags", "")
-    make_args = list(build.get("make_args", []))
-    command = ["make", *make_args, f"LDFLAGS={ldflags} {rpath}".strip()]
+    # A PE binary has no RUNPATH, so the Windows cross passes no rpath flag
+    # and no LDFLAGS at all when the pin states none, letting the Makefile's
+    # own Windows link stand.
+    command = ["make", *list(build.get("make_args", []))]
+    if system == "windows_amd64":
+        if build.get("ldflags"):
+            command += [f"LDFLAGS={build['ldflags']}"]
+    else:
+        ldflags = build.get("ldflags", "")
+        command += [f"LDFLAGS={ldflags} {rpath}".strip()]
     if build.get("extra_make_vars"):
         command += [f"{k}={v}" for k, v in build["extra_make_vars"].items()]
     log(" ".join(command))
@@ -176,29 +184,76 @@ def run_pip(package_dir, pin, source_dir):
     return target
 
 
-def verify(pin, package_dir):
+# IMAGE_FILE_MACHINE_AMD64 from the PE header. Read here instead of asking
+# the `file` tool so the probe needs nothing the image does not already have.
+_PE_AMD64 = 0x8664
+
+
+def pe_machine(path):
+    """The PE machine field of a binary, or None when it is no PE file."""
+    with open(path, "rb") as handle:
+        head = handle.read(64)
+        if len(head) < 64 or head[:2] != b"MZ":
+            return None
+        handle.seek(int.from_bytes(head[60:64], "little"))
+        coff = handle.read(6)
+        if len(coff) < 6 or coff[:4] != b"PE\0\0":
+            return None
+        return int.from_bytes(coff[4:6], "little")
+
+
+def _verify_windows(package_dir, build):
+    """Probe a cross-built tool without executing it."""
+    binary = package_dir / (build.get("output") or "")
+    machine = pe_machine(binary) if binary.is_file() else None
+    if machine != _PE_AMD64:
+        raise SystemExit(f"expected a 64-bit Windows binary at {binary}")
+    verify = build.get("verify") or {}
+    # A licence banner is a string like any other when the binary cannot run:
+    # the notice has to be in the image, not in a probe's output.
+    required = list(verify.get("strings_must_match", []))
+    if verify.get("banner_must_match"):
+        required.append(verify["banner_must_match"])
+    image = binary.read_bytes()
+    missing = [entry for entry in required if entry.encode() not in image]
+    if missing:
+        raise SystemExit(
+            f"binary check failed: {missing!r} not in {binary}; the packaged "
+            f"binary does not carry the strings the pin requires"
+        )
+    log(f"windows binary present ({binary.name})")
+
+
+def verify(pin, package_dir, system):
     """Probe the built tool, including any licence banner the pin demands."""
-    probe = toolpin.banner_check(pin)
+    build = toolpin.effective_build(pin, system)
+    if system == "windows_amd64" and build["kind"] == "make":
+        # A cross-built PE cannot execute on the Linux build host, so the
+        # probe asserts the artifact kind and the strings the pin demands
+        # instead of running it.
+        _verify_windows(package_dir, build)
+        return
+    probe = toolpin.banner_check(pin, system)
     if not probe:
         return
     argv, must_match = probe
     env = dict(os.environ)
-    interpreter = pin["build"].get("interpreter") or sys.executable
-    if pin["build"].get("home_dir"):
-        env["MINIPRO_HOME"] = str(package_dir / pin["build"]["home_dir"])
-    if pin["build"]["kind"] == "python":
+    interpreter = build.get("interpreter") or sys.executable
+    if build.get("home_dir"):
+        env["MINIPRO_HOME"] = str(package_dir / build["home_dir"])
+    if build["kind"] == "python":
         # The vendored tree is the import root, exactly as PlatformIO's own
         # interpreter will see it after unpacking the package.
-        env["PYTHONPATH"] = str(package_dir / pin["build"].get("vendor_dir", "vendor"))
+        env["PYTHONPATH"] = str(package_dir / build.get("vendor_dir", "vendor"))
         # The pin names the entry point rather than assuming argv[0] resolves,
         # so an upstream rename is a one-line pin edit.
-        command = [interpreter, str(package_dir / pin["build"]["entry_point"]),
+        command = [interpreter, str(package_dir / build["entry_point"]),
                    *argv[1:]]
     else:
         command = [str(package_dir / argv[0].removeprefix("./")), *argv[1:]]
     log("verify " + " ".join(command))
     result = subprocess.run(command, capture_output=True, text=True, env=env)
-    expected = pin["build"]["verify"].get("expect_exit")
+    expected = (build.get("verify") or {}).get("expect_exit")
     # A programmer tool with no hardware attached exits non-zero by design, so
     # the pin states the expectation rather than assuming zero.
     if expected is not None and result.returncode != expected:
@@ -228,7 +283,7 @@ def fetch_pinned_data(pin, dest_dir):
     return fetched
 
 
-def stage(pin, package_dir, source_dir, fetched):
+def stage(pin, system, package_dir, source_dir, fetched):
     """Put the runtime pieces in place before the probe runs.
 
     Data files and bundled libraries land first because the probe executes the
@@ -246,8 +301,16 @@ def stage(pin, package_dir, source_dir, fetched):
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
 
+    libraries = toolpin.effective_build(pin, system).get("bundled_libraries")
+    if libraries is None:
+        libraries = pin.get("bundled_libraries", [])
+    if system == "windows_amd64" and libraries:
+        # The .so lookup below names Linux paths; a Windows DLL needs an
+        # explicit path the pin cannot name yet, so fail loudly instead of
+        # shipping a package whose library never lands.
+        raise SystemExit(f"bundled libraries are not supported for {system} yet")
     lib_dir = package_dir / "lib"
-    for library in pin.get("bundled_libraries", []):
+    for library in libraries:
         lib_dir.mkdir(exist_ok=True)
         copied = 0
         for name in toolpin.bundled_library_system_names(library):
@@ -361,12 +424,15 @@ def build_in_container(pin_path, system, out_dir):
             (package_dir / built.name).chmod(0o755)
         else:
             vendor = run_pip(package_dir, pin, source_dir)
+            if system == "windows_amd64":
+                stripped = strip_host_objects(vendor)
+                log(f"stripped {stripped} host binaries for {system}")
             log(f"vendored {len(list(vendor.iterdir()))} entries")
 
         # Layout before the probe: the tool has to find its data files and its
         # bundled libraries for the probe to mean anything.
-        stage(pin, package_dir, source_dir, fetch_pinned_data(pin, tmp / "data"))
-        verify(pin, package_dir)
+        stage(pin, system, package_dir, source_dir, fetch_pinned_data(pin, tmp / "data"))
+        verify(pin, package_dir, system)
 
         out_dir = pathlib.Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -376,7 +442,26 @@ def build_in_container(pin_path, system, out_dir):
         return archive_path
 
 
-def image_for(pin):
+def strip_host_objects(vendor_dir):
+    """Drop ELF objects from a Windows vendor tree.
+
+    Wheels tagged for the build host carry compiled extensions a Windows
+    interpreter cannot load; the pure-Python fallbacks keep the tree working
+    on any interpreter new enough for the tool.
+    """
+    removed = 0
+    for obj in sorted(vendor_dir.rglob("*.so")):
+        obj.unlink()
+        removed += 1
+    return removed
+
+
+def image_for(pin, system):
+    """The build image for one host. Windows C builds cross-compile with
+    mingw-w64, so they get their own image; a pure-Python tree is identical
+    per host and shares one."""
+    if system == "windows_amd64" and pin["build"]["kind"] == "make":
+        return (WINDOWS_IMAGE_TAG, REPO_ROOT / "docker" / "build" / "windows.Dockerfile")
     return IMAGES[pin["build"]["kind"]]
 
 
@@ -399,7 +484,7 @@ def build_on_host(pin_path, system, out_dir):
     """The host half: no toolchain here, so the work happens in the container."""
     pin_path = pathlib.Path(pin_path).resolve()
     pin = toolpin.load_pin(pin_path)
-    tag, dockerfile = image_for(pin)
+    tag, dockerfile = image_for(pin, system)
     if not docker_image_ready(tag):
         build_image(tag, dockerfile)
     out_dir = pathlib.Path(out_dir).resolve()
