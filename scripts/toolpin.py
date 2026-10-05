@@ -25,6 +25,14 @@ KNOWN_SYSTEMS = {
 
 BUILD_KINDS = ("make", "python")
 
+# A build.per_system entry overlays these keys for one host. Every key but
+# extra_make_vars replaces the base; the make vars merge, so a Windows cross
+# states its own CC beside whatever the base carries.
+PER_SYSTEM_BUILD_KEYS = (
+    "make_args", "extra_make_vars", "ldflags", "output", "verify",
+    "bundled_libraries",
+)
+
 # Applied in filename order, so a queue that has to be ordered is numbered by
 # whoever added it rather than by directory-read order, which no filesystem
 # guarantees.
@@ -138,6 +146,8 @@ def validate(pin):
         for system in systems:
             if system not in KNOWN_SYSTEMS:
                 problems.append(f"unknown system {system!r}")
+    if isinstance(build, dict):
+        problems += _per_system_problems(pin)
     for library in pin.get("bundled_libraries", []):
         if not str(library).strip():
             problems.append("bundled_libraries entries must be names")
@@ -153,6 +163,46 @@ def validate(pin):
             if to in destinations:
                 problems.append(f"data_files[{index}] repeats destination {to!r}")
             destinations.add(to)
+    return problems
+
+
+def _per_system_problems(pin):
+    """A per_system entry names a declared host and only build keys."""
+    build = pin.get("build")
+    if not isinstance(build, dict):
+        return []
+    per_system = build.get("per_system") or {}
+    if not isinstance(per_system, dict):
+        return ["build.per_system must be an object keyed by system"]
+    declared = pin.get("systems")
+    if not isinstance(declared, list):
+        declared = []
+    problems = []
+    for system, overlay in per_system.items():
+        where = f"per_system[{system}]"
+        if system not in KNOWN_SYSTEMS:
+            problems.append(f"unknown {where} host")
+            continue
+        if system not in declared:
+            problems.append(f"{where} names a system the pin does not declare")
+            continue
+        if not isinstance(overlay, dict):
+            problems.append(f"{where} must be an object")
+            continue
+        for key in overlay:
+            if key not in PER_SYSTEM_BUILD_KEYS:
+                problems.append(f"{where} has no build key {key!r}")
+        effective = effective_build(pin, system)
+        if build.get("kind") == "make" and system == "windows_amd64":
+            if not str(effective.get("output", "")).endswith(".exe"):
+                problems.append(f"{where} of a make build must name a .exe output")
+        verify = effective.get("verify") or {}
+        if system == "windows_amd64" and isinstance(verify, dict):
+            if "expect_exit" in verify:
+                problems.append(f"{where} verify cannot expect an exit code")
+            for entry in verify.get("strings_must_match", []):
+                if not str(entry).strip():
+                    problems.append(f"{where} verify lists an empty string")
     return problems
 
 
@@ -207,6 +257,20 @@ def archive_name(pin, system, version=None):
 def systems_of(pin, system):
     """The manifest's ``system`` list for one build host."""
     return KNOWN_SYSTEMS[system]
+
+
+def effective_build(pin, system):
+    """The build dict for one host: the base overlaid with its entry."""
+    base = dict(pin["build"])
+    overlay = (base.get("per_system") or {}).get(system, {})
+    merged = dict(base)
+    for key, value in overlay.items():
+        if key == "extra_make_vars":
+            merged[key] = {**(base.get(key) or {}), **value}
+        else:
+            merged[key] = value
+    merged.pop("per_system", None)
+    return merged
 
 
 def manifest(pin, system, version=None):

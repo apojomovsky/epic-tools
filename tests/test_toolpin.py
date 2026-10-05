@@ -15,6 +15,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import toolpin  # noqa: E402
+import build_tool  # noqa: E402
 
 REAL_TOOLS = ("tool-minipro", "tool-pk2cmd", "tool-picpro")
 
@@ -410,3 +411,120 @@ class SystemDeclarationTest(unittest.TestCase):
         pin["systems"] = ["windows_amd64"]
         self.assertEqual(toolpin.systems_of(pin, "windows_amd64"),
                          ["windows_amd64", "windows_x86_64"])
+
+
+class EffectiveBuildTest(unittest.TestCase):
+    def test_without_an_entry_the_base_build_is_returned_whole(self):
+        pin = base_pin()
+        self.assertEqual(toolpin.effective_build(pin, "linux_x86_64"),
+                         pin["build"])
+
+    def test_an_entry_replaces_only_the_keys_it_names(self):
+        pin = base_pin()
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["build"]["per_system"] = {"windows_amd64": {"output": "demo.exe"}}
+        effective = toolpin.effective_build(pin, "windows_amd64")
+        self.assertEqual(effective["output"], "demo.exe")
+        self.assertNotIn("per_system", effective)
+        self.assertEqual(toolpin.effective_build(pin, "linux_x86_64")["output"],
+                         "demo")
+
+    def test_make_vars_merge_while_other_keys_replace(self):
+        pin = base_pin()
+        pin["build"]["extra_make_vars"] = {"BASE": "1"}
+        pin["build"]["per_system"] = {"windows_amd64": {
+            "extra_make_vars": {"BASE": "2", "CC": "x"}, "ldflags": "-lhid"}}
+        effective = toolpin.effective_build(pin, "windows_amd64")
+        self.assertEqual(effective["extra_make_vars"], {"BASE": "2", "CC": "x"})
+        self.assertEqual(effective["ldflags"], "-lhid")
+
+
+class PerSystemValidateTest(unittest.TestCase):
+    def windows_pin(self):
+        pin = base_pin()
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["build"]["per_system"] = {"windows_amd64": {
+            "output": "demo.exe",
+            "verify": {"args": ["./demo.exe", "--version"]},
+        }}
+        return pin
+
+    def test_a_valid_windows_entry_has_no_problems(self):
+        self.assertEqual(toolpin.validate(self.windows_pin()), [])
+
+    def test_an_unknown_host_is_rejected(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"] = {"plan9": {}}
+        self.assertTrue(any("plan9" in p for p in toolpin.validate(pin)))
+
+    def test_an_undeclared_host_is_rejected(self):
+        pin = base_pin()
+        pin["build"]["per_system"] = {"windows_amd64": {"output": "demo.exe"}}
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("does not declare" in p for p in problems))
+
+    def test_an_unknown_build_key_is_rejected(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["bogus"] = 1
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("bogus" in p for p in problems))
+
+    def test_a_windows_make_output_without_exe_is_rejected(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["output"] = "demo"
+        problems = toolpin.validate(pin)
+        self.assertTrue(any(".exe" in p for p in problems))
+
+    def test_a_windows_verify_with_an_exit_expectation_is_rejected(self):
+        # A cross-built PE cannot execute on the Linux build host, so an
+        # exit expectation could never be honored there.
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["verify"]["expect_exit"] = 0
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("exit code" in p for p in problems))
+
+    def test_a_windows_verify_with_an_empty_string_is_rejected(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["verify"] = {
+            "strings_must_match": [""]}
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("empty string" in p for p in problems))
+
+
+class PeMachineTest(unittest.TestCase):
+    """The cross-build probe reads the PE header itself, no `file` tool."""
+
+    def image_with_machine(self, machine):
+        header = b"MZ" + b"\0" * 58 + (64).to_bytes(4, "little")
+        return header + b"PE\0\0" + machine.to_bytes(2, "little")
+
+    def test_an_amd64_image_reports_its_machine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = pathlib.Path(tmp) / "demo.exe"
+            binary.write_bytes(self.image_with_machine(0x8664))
+            self.assertEqual(build_tool.pe_machine(binary), 0x8664)
+
+    def test_a_non_pe_file_reports_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = pathlib.Path(tmp) / "demo"
+            binary.write_bytes(b"\x7fELF" + b"\0" * 60)
+            self.assertIsNone(build_tool.pe_machine(binary))
+
+    def test_a_truncated_header_reports_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = pathlib.Path(tmp) / "demo.exe"
+            binary.write_bytes(b"MZ" + b"\0" * 10)
+            self.assertIsNone(build_tool.pe_machine(binary))
+
+
+class StripHostObjectsTest(unittest.TestCase):
+    def test_only_shared_objects_leave_the_vendor_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vendor = pathlib.Path(tmp)
+            (vendor / "fast.so").write_bytes(b"x")
+            (vendor / "sub").mkdir()
+            (vendor / "sub" / "deep.so").write_bytes(b"x")
+            (vendor / "slow.py").write_text("x")
+            self.assertEqual(build_tool.strip_host_objects(vendor), 2)
+            self.assertFalse((vendor / "fast.so").exists())
+            self.assertTrue((vendor / "slow.py").exists())
