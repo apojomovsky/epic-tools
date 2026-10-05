@@ -512,6 +512,28 @@ class PerSystemValidateTest(unittest.TestCase):
         problems = toolpin.validate(pin)
         self.assertTrue(any("empty string" in p for p in problems))
 
+    def test_a_non_object_make_vars_entry_is_rejected(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["extra_make_vars"] = "CC=x"
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("must be an object" in p for p in problems))
+
+    def test_a_non_list_strings_entry_is_rejected(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["verify"] = {
+            "strings_must_match": "demo banner"}
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("non-empty strings" in p for p in problems))
+
+    def test_a_malformed_entry_loads_as_a_pin_error_not_a_crash(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["extra_make_vars"] = "CC=x"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "pin.json"
+            path.write_text(json.dumps(pin))
+            with self.assertRaises(toolpin.PinError):
+                toolpin.load_pin(path)
+
 
 class PeMachineTest(unittest.TestCase):
     """The cross-build probe reads the PE header itself, no `file` tool."""
@@ -606,3 +628,33 @@ class VerifyTest(unittest.TestCase):
             (package / "demo.exe").write_bytes(b"\x7fELF" + b"\0" * 60)
             with self.assertRaises(SystemExit):
                 build_tool.verify(pin, package, "windows_amd64")
+
+    def test_the_linux_probe_honors_a_per_system_verify_entry(self):
+        pin = base_pin()
+        pin["build"]["verify"] = {"args": ["./demo"],
+                                  "banner_must_match": "base banner"}
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["build"]["per_system"] = {"linux_x86_64": {
+            "verify": {"args": ["./demo"],
+                       "banner_must_match": "demo banner"}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp)
+            self.staged_script(package)
+            build_tool.verify(pin, package, "linux_x86_64")
+
+    def test_the_windows_probe_checks_the_banner_text_too(self):
+        pin = base_pin()
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["build"]["per_system"] = {"windows_amd64": {
+            "output": "demo.exe",
+            "verify": {"args": ["./demo.exe"],
+                       "banner_must_match": "demo banner"}}}
+        header = b"MZ" + b"\0" * 58 + (64).to_bytes(4, "little")
+        image = header + b"PE\0\0" + (0x8664).to_bytes(2, "little")
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp)
+            (package / "demo.exe").write_bytes(image + b"something else")
+            with self.assertRaises(SystemExit):
+                build_tool.verify(pin, package, "windows_amd64")
+            (package / "demo.exe").write_bytes(image + b"demo banner")
+            build_tool.verify(pin, package, "windows_amd64")

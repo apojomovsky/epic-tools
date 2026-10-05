@@ -189,9 +189,24 @@ def _per_system_problems(pin):
         if not isinstance(overlay, dict):
             problems.append(f"{where} must be an object")
             continue
-        for key in overlay:
+        shape_ok = True
+        for key, value in overlay.items():
             if key not in PER_SYSTEM_BUILD_KEYS:
                 problems.append(f"{where} has no build key {key!r}")
+                shape_ok = False
+            elif key in ("make_args", "bundled_libraries"):
+                if not isinstance(value, list):
+                    problems.append(f"{where} {key} must be a list")
+                    shape_ok = False
+            elif key in ("extra_make_vars", "verify"):
+                if not isinstance(value, dict):
+                    problems.append(f"{where} {key} must be an object")
+                    shape_ok = False
+            elif not isinstance(value, str):
+                problems.append(f"{where} {key} must be a string")
+                shape_ok = False
+        if not shape_ok:
+            continue
         effective = effective_build(pin, system)
         if build.get("kind") == "make" and system == "windows_amd64":
             if not str(effective.get("output", "")).endswith(".exe"):
@@ -200,9 +215,12 @@ def _per_system_problems(pin):
         if system == "windows_amd64" and isinstance(verify, dict):
             if "expect_exit" in verify:
                 problems.append(f"{where} verify cannot expect an exit code")
-            for entry in verify.get("strings_must_match", []):
-                if not str(entry).strip():
-                    problems.append(f"{where} verify lists an empty string")
+            strings = verify.get("strings_must_match", [])
+            if (not isinstance(strings, list)
+                    or any(not isinstance(entry, str) or not entry.strip()
+                           for entry in strings)):
+                problems.append(f"{where} verify strings_must_match "
+                                f"must be a list of non-empty strings")
     return problems
 
 
@@ -328,14 +346,16 @@ def bundled_library_system_names(library):
     return (f"{library}.so", f"{library}.so.0")
 
 
-def banner_check(pin):
+def banner_check(pin, system=None):
     """The post-build probe: (argv, expected substring or None).
 
     A tool whose licence requires a visible notice (Microchip's PK2CMD clause
     1(b)) sets ``banner_must_match``, and the probe then fails the build rather
-    than publishing a binary that does not carry it.
+    than publishing a binary that does not carry it. With a system the probe
+    reads that host's entry, so a per-system overlay is honored, not ignored.
     """
-    verify = pin["build"].get("verify") or {}
+    build = effective_build(pin, system) if system else pin["build"]
+    verify = build.get("verify") or {}
     args = verify.get("args")
     if not args:
         return None

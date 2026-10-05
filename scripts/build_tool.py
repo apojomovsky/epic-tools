@@ -209,9 +209,13 @@ def _verify_windows(package_dir, build):
     if machine != _PE_AMD64:
         raise SystemExit(f"expected a 64-bit Windows binary at {binary}")
     verify = build.get("verify") or {}
+    # A licence banner is a string like any other when the binary cannot run:
+    # the notice has to be in the image, not in a probe's output.
+    required = list(verify.get("strings_must_match", []))
+    if verify.get("banner_must_match"):
+        required.append(verify["banner_must_match"])
     image = binary.read_bytes()
-    missing = [entry for entry in verify.get("strings_must_match", [])
-               if entry.encode() not in image]
+    missing = [entry for entry in required if entry.encode() not in image]
     if missing:
         raise SystemExit(
             f"binary check failed: {missing!r} not in {binary}; the packaged "
@@ -229,27 +233,27 @@ def verify(pin, package_dir, system):
         # instead of running it.
         _verify_windows(package_dir, build)
         return
-    probe = toolpin.banner_check(pin)
+    probe = toolpin.banner_check(pin, system)
     if not probe:
         return
     argv, must_match = probe
     env = dict(os.environ)
-    interpreter = pin["build"].get("interpreter") or sys.executable
-    if pin["build"].get("home_dir"):
-        env["MINIPRO_HOME"] = str(package_dir / pin["build"]["home_dir"])
-    if pin["build"]["kind"] == "python":
+    interpreter = build.get("interpreter") or sys.executable
+    if build.get("home_dir"):
+        env["MINIPRO_HOME"] = str(package_dir / build["home_dir"])
+    if build["kind"] == "python":
         # The vendored tree is the import root, exactly as PlatformIO's own
         # interpreter will see it after unpacking the package.
-        env["PYTHONPATH"] = str(package_dir / pin["build"].get("vendor_dir", "vendor"))
+        env["PYTHONPATH"] = str(package_dir / build.get("vendor_dir", "vendor"))
         # The pin names the entry point rather than assuming argv[0] resolves,
         # so an upstream rename is a one-line pin edit.
-        command = [interpreter, str(package_dir / pin["build"]["entry_point"]),
+        command = [interpreter, str(package_dir / build["entry_point"]),
                    *argv[1:]]
     else:
         command = [str(package_dir / argv[0].removeprefix("./")), *argv[1:]]
     log("verify " + " ".join(command))
     result = subprocess.run(command, capture_output=True, text=True, env=env)
-    expected = pin["build"]["verify"].get("expect_exit")
+    expected = (build.get("verify") or {}).get("expect_exit")
     # A programmer tool with no hardware attached exits non-zero by design, so
     # the pin states the expectation rather than assuming zero.
     if expected is not None and result.returncode != expected:
