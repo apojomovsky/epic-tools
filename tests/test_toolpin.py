@@ -223,6 +223,28 @@ class ShippedPinsTest(unittest.TestCase):
                 self.assertTrue(toolpin.bundled_library_system_names(library),
                                 f"{name}: {library}")
 
+    def test_every_shipped_pin_declares_both_hosts(self):
+        for name in REAL_TOOLS:
+            pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
+            self.assertEqual(pin["systems"],
+                             ["linux_x86_64", "windows_amd64"], name)
+
+    def test_windows_c_binaries_ship_no_bundled_library(self):
+        # The Windows backends use system libraries (WinUSB, HID) with static
+        # runtimes, so a Windows package carries no lib/ directory at all.
+        for name in ("tool-minipro", "tool-pk2cmd"):
+            pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
+            effective = toolpin.effective_build(pin, "windows_amd64")
+            self.assertTrue(effective["output"].endswith(".exe"), name)
+            self.assertEqual(effective.get("bundled_libraries",
+                             pin.get("bundled_libraries")), [], name)
+
+    def test_picpro_builds_one_tree_for_both_hosts(self):
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-picpro" / "pin.json")
+        self.assertNotIn("per_system", pin["build"])
+        self.assertEqual(toolpin.effective_build(pin, "windows_amd64"),
+                         toolpin.effective_build(pin, "linux_x86_64"))
+
 
 class PatchQueueTest(unittest.TestCase):
     def test_no_patch_directory_means_an_empty_queue(self):

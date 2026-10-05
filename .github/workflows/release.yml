@@ -29,7 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         tool: [tool-minipro, tool-pk2cmd, tool-picpro]
-        system: [linux_x86_64]
+        system: [linux_x86_64, windows_amd64]
     steps:
       - uses: actions/checkout@v4
 
@@ -43,7 +43,8 @@ jobs:
         run: |
           # A tag names the tool it releases (<tool>-v<version>), so a tag run
           # builds only that tool; a dispatch builds the requested one or all.
-          # No windows_amd64 host exists until a Windows build image does.
+          # Windows C builds cross-compile with mingw-w64, so no Windows
+          # runner is needed for either host.
           if [ "$EVENT" = "push" ]; then
             case "$REF" in
               "${TOOL}-v"*) echo "selected=true" >> "$GITHUB_OUTPUT" ;;
@@ -152,8 +153,11 @@ jobs:
               echo "Pinned upstream tag, patch queue, licence and redistribution"
               echo "notes: \`tools/${tool}/pin.json\`."
             } > /tmp/notes.md
+            # Both system jobs share one release: when the sibling wins the
+            # create race, fall back to uploading beside its archive.
             gh release create "$tag" dist/*.tar.gz \
-              --title "${tool} v${version}" --notes-file /tmp/notes.md
+              --title "${tool} v${version}" --notes-file /tmp/notes.md \
+              || gh release upload "$tag" dist/*.tar.gz --clobber
           fi
 
       - name: Publish to the PlatformIO registry
