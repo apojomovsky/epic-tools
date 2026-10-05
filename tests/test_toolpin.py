@@ -550,3 +550,59 @@ class StripHostObjectsTest(unittest.TestCase):
             self.assertEqual(build_tool.strip_host_objects(vendor), 2)
             self.assertFalse((vendor / "fast.so").exists())
             self.assertTrue((vendor / "slow.py").exists())
+
+
+class VerifyTest(unittest.TestCase):
+    """The probe executes staged Linux binaries and inspects Windows ones."""
+
+    def staged_script(self, package, name="demo"):
+        prog = package / name
+        prog.write_text("#!/bin/sh\necho demo banner\n")
+        prog.chmod(0o755)
+        return prog
+
+    def test_the_linux_probe_executes_the_staged_binary(self):
+        pin = base_pin()
+        pin["build"]["verify"] = {"args": ["./demo"],
+                                  "expect_exit": 0,
+                                  "banner_must_match": "demo banner"}
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp)
+            self.staged_script(package)
+            build_tool.verify(pin, package, "linux_x86_64")
+
+    def test_the_linux_probe_refuses_a_binary_missing_its_banner(self):
+        pin = base_pin()
+        pin["build"]["verify"] = {"args": ["./demo"],
+                                  "banner_must_match": "demo banner"}
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp)
+            prog = package / "demo"
+            prog.write_text("#!/bin/sh\necho something else\n")
+            prog.chmod(0o755)
+            with self.assertRaises(SystemExit):
+                build_tool.verify(pin, package, "linux_x86_64")
+
+    def test_the_windows_probe_checks_kind_and_strings(self):
+        pin = base_pin()
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["build"]["per_system"] = {"windows_amd64": {
+            "output": "demo.exe",
+            "verify": {"args": ["./demo.exe"],
+                       "strings_must_match": ["demo banner"]}}}
+        header = b"MZ" + b"\0" * 58 + (64).to_bytes(4, "little")
+        image = header + b"PE\0\0" + (0x8664).to_bytes(2, "little")
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp)
+            (package / "demo.exe").write_bytes(image + b"demo banner")
+            build_tool.verify(pin, package, "windows_amd64")
+
+    def test_the_windows_probe_refuses_a_non_pe_binary(self):
+        pin = base_pin()
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["build"]["per_system"] = {"windows_amd64": {"output": "demo.exe"}}
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp)
+            (package / "demo.exe").write_bytes(b"\x7fELF" + b"\0" * 60)
+            with self.assertRaises(SystemExit):
+                build_tool.verify(pin, package, "windows_amd64")

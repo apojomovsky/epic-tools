@@ -232,6 +232,7 @@ def verify(pin, package_dir, system):
     probe = toolpin.banner_check(pin)
     if not probe:
         return
+    argv, must_match = probe
     env = dict(os.environ)
     interpreter = pin["build"].get("interpreter") or sys.executable
     if pin["build"].get("home_dir"):
