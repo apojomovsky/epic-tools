@@ -1,0 +1,255 @@
+Compile pk2cmd for 64-bit Windows with mingw-w64.
+
+"Windows.h" only resolves on case-insensitive filesystems; the lowercase
+spelling builds on both. The PATH search and the string copies pass the
+buffer sizes the CRT secure functions want, keeping the three-argument
+shims for Linux. The HID handle compares against INVALID_HANDLE_VALUE,
+which holds on 64-bit where truncating the handle to int does not. The
+hex writer funnels every host through one strncat spelling instead of
+the platform secure name. To be offered upstream by the human so the
+queue can shrink.
+
+--- a/pk2cmd/cmd_app.cpp
++++ b/pk2cmd/cmd_app.cpp
+@@ -23,7 +23,7 @@
+ #include "string.h"
+ #include "time.h"
+ #ifdef WIN32
+-#include "Windows.h"
++#include <windows.h>
+ #include "conio.h"
+ #else
+ #include    <termios.h>
+@@ -97,9 +97,9 @@
+ 	{ // check for explicit path with -B
+ #ifdef WIN32
+ 		if (tempString[_tcslen(tempString)-1] != '\\')
+-			_tcscat_s(tempString, "\\PK2DeviceFile.dat");
++			_tcscat_s(tempString, MAX_PATH, "\\PK2DeviceFile.dat");
+ 		else
+-			_tcscat_s(tempString, "PK2DeviceFile.dat");
++			_tcscat_s(tempString, MAX_PATH, "PK2DeviceFile.dat");
+ #else
+ 		if (tempString[_tcslen(tempString)-1] != '/')
+ 			_tcscat_s(tempString, "/PK2DeviceFile.dat");
+@@ -115,10 +115,18 @@
+ 	{ // no -B, check PATH
+ //		strcpy(tempString, "/usr/share/pk2/PK2DeviceFile.dat");
+ #if 1
++#ifdef WIN32
++		_searchenv_s("PK2DeviceFile.dat", "PATH", tempString, MAX_PATH);
++#else
+ 		_tsearchenv_s("PK2DeviceFile.dat", "PATH", tempString);
++#endif
+ 		if (_tcslen(tempString) < 17)
+ 		{
++		#ifdef WIN32
++			_tcsncpy_s(tempString, MAX_PATH, "PK2DeviceFile.dat", 17);
++		#else
+ 			_tcsncpy_s(tempString, "PK2DeviceFile.dat", 17);
++		#endif
+ 		}
+ #endif
+ 	}
+--- a/pk2cmd/PICkitFunctions.cpp
++++ b/pk2cmd/PICkitFunctions.cpp
+@@ -23,7 +23,7 @@
+ #include "P24F_PE.h"
+ #include "string.h"
+ #ifdef WIN32
+-#include "Windows.h"
++#include <windows.h>
+ #endif
+ 
+ CPICkitFunctions::CPICkitFunctions(void)
+--- a/pk2cmd/Pk2BootLoader.cpp
++++ b/pk2cmd/Pk2BootLoader.cpp
+@@ -18,7 +18,7 @@
+ #include "stdafx.h"
+ #include "Pk2BootLoader.h"
+ #ifdef WIN32
+-#include "Windows.h"
++#include <windows.h>
+ #endif
+ 
+ Pk2BootLoader::Pk2BootLoader(void)
+--- a/pk2cmd/usbhidioc.cpp
++++ b/pk2cmd/usbhidioc.cpp
+@@ -66,7 +66,7 @@
+ */
+ 
+ #include "stdafx.h"
+-#include "Windows.h"
++#include <windows.h>
+ #include "usbhidioc.h"
+ 
+ #include <wtypes.h>
+@@ -267,7 +267,7 @@
+ 				FILE_FLAG_OVERLAPPED,
+ 				NULL);
+ 
+-			if ((int)DeviceHandle != -1)
++			if (DeviceHandle != INVALID_HANDLE_VALUE)
+ 			{
+ 				if (wrhEventObject == 0)
+ 				{
+--- a/pk2cmd/ImportExportHex.cpp
++++ b/pk2cmd/ImportExportHex.cpp
+@@ -19,16 +19,19 @@
+ #include "ImportExportHex.h"
+ #include "PIC32PE.h"
+ 
+-#ifdef __linux__
+-/* linux gcc produces warnings for almost concats in this file, removing it as they seem all safe */
+-static char * _tcsncat_s(char *dst, const char *src, size_t len)
++/* The CRT secure form wants a buffer size the call sites do not carry, so every
++   host funnels through this strncat spelling instead of the platform one. */
++static char *hex_cat(char *dst, const char *src, size_t len)
+ {
++#ifdef __GNUC__
+ #pragma GCC diagnostic push
+ #pragma GCC diagnostic ignored "-Wstringop-truncation"
++#endif
+ 	return strncat(dst, src, len);
++#ifdef __GNUC__
+ #pragma GCC diagnostic pop
+-}
+ #endif
++}
+ 
+ CImportExportHex::CImportExportHex(void)
+ {
+@@ -576,11 +579,11 @@
+ 						_stprintf_s(hexWord, 32, "%08X", picFuncs->DeviceBuffers->ProgramMemory[arrayIndex + i]);
+ 						for (int j = 0; j < bytesPerWord; j++)
+ 						{
+-							_tcsncat_s(hexLine, &hexWord[6 - 2 * j], 2);
++							hex_cat(hexLine, &hexWord[6 - 2 * j], 2);
+ 						}
+ 					}
+ 					_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(hexLine));
+-					_tcsncat_s(hexLine, hexWord, 3);
++					hex_cat(hexLine, hexWord, 3);
+ 					_fputts(hexLine, hexfile);
+ 				}
+ 				fileAddress += 16;
+@@ -594,8 +597,8 @@
+ 					//_stprintf_s(hexLine, 80, ":02000004%04X", fileSegment);
+ 					_stprintf_s(segmentLine, 80, ":02000004%04X", fileSegment);
+ 					_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(segmentLine));
+-					//_tcsncat_s(hexLine, hexWord, 3);
+-					_tcsncat_s(segmentLine, hexWord, 3);
++					//hex_cat(hexLine, hexWord, 3);
++					hex_cat(segmentLine, hexWord, 3);
+ 					if (packed)
+ 					{
+ 						pendingSegmentLine = true;
+@@ -626,7 +629,7 @@
+ 				fileAddress = (int)(picFuncs->GetAuxFlashAddress() & 0xFFFF);
+ 				_stprintf_s(segmentLine, 80, ":02000004%04X", fileSegment);
+ 				_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(segmentLine));
+-				_tcsncat_s(segmentLine, hexWord, 3);
++				hex_cat(segmentLine, hexWord, 3);
+ 				_fputts(segmentLine, hexfile);
+ 			}
+ 			arrayIndex = programEnd;
+@@ -683,11 +686,11 @@
+ 							//_stprintf_s(hexWord, 32, "%08X", picFuncs->DeviceBuffers->ProgramMemory[arrayIndex + i]);
+ 							for (int j = 0; j < bytesPerWord; j++)
+ 							{
+-								_tcsncat_s(hexLine, &hexWord[6 - 2 * j], 2);
++								hex_cat(hexLine, &hexWord[6 - 2 * j], 2);
+ 							}
+ 						}
+ 						_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(hexLine));
+-						_tcsncat_s(hexLine, hexWord, 3);
++						hex_cat(hexLine, hexWord, 3);
+ 						_fputts(hexLine, hexfile);
+ 					}
+                     fileAddress += 16;
+@@ -700,7 +703,7 @@
+ 						fileAddress &= 0xFFFF;
+ 						_stprintf_s(segmentLine, 80, ":02000004%04X", fileSegment);
+ 						_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(segmentLine));
+-						_tcsncat_s(segmentLine, hexWord, 3);
++						hex_cat(segmentLine, hexWord, 3);
+ 						if (packed)
+ 						{
+ 							pendingSegmentLine = true;
+@@ -728,7 +731,7 @@
+ 				{ // need a segment address
+ 					_stprintf_s(segmentLine, 80, ":02000004%04X", (eeAddr >> 16));
+ 					_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(segmentLine));
+-					_tcsncat_s(segmentLine, hexWord, 3);
++					hex_cat(segmentLine, hexWord, 3);
+ 					//_fputts(hexLine, hexfile);
+ 					pendingSegmentLine = true;
+ 				}
+@@ -780,11 +783,11 @@
+ 							_stprintf_s(hexWord, 32, "%08X", picFuncs->DeviceBuffers->EEPromMemory[arrayIndex + i]);
+ 							for (int j = 0; j < eeBytesPerWord; j++)
+ 							{
+-								_tcsncat_s(hexLine, &hexWord[6 - 2 * j], 2);
++								hex_cat(hexLine, &hexWord[6 - 2 * j], 2);
+ 							}
+ 						}
+ 						_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(hexLine));
+-						_tcsncat_s(hexLine, hexWord, 3);
++						hex_cat(hexLine, hexWord, 3);
+ 						_fputts(hexLine, hexfile);
+ 					}
+ 					fileAddress += 16;
+@@ -810,7 +813,7 @@
+ 				{ // need a segment address
+ 					_stprintf_s(hexLine, 80, ":02000004%04X", (configAddr >> 16));
+ 					_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(hexLine));
+-					_tcsncat_s(hexLine, hexWord, 3);
++					hex_cat(hexLine, hexWord, 3);
+ 					_fputts(hexLine, hexfile);
+ 				}
+ 
+@@ -848,18 +851,18 @@
+ 
+ 						if (i == (cfgsLeft - 1) && lastConfByteOdd) // Last, partial config word (only one byte) of Q71,83,84
+ 						{
+-							_tcsncat_s(hexLine, &hexWord[6], 2);
++							hex_cat(hexLine, &hexWord[6], 2);
+ 						}
+ 						else        // 'Normal' write of config word
+ 						{
+ 							for (int j = 0; j < cfgBytesPerWord; j++)
+ 							{
+-								_tcsncat_s(hexLine, &hexWord[8 - ((j + 1) * 2)], 2);
++								hex_cat(hexLine, &hexWord[8 - ((j + 1) * 2)], 2);
+ 							}
+ 						}
+ 					}
+ 					_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(hexLine));
+-					_tcsncat_s(hexLine, hexWord, 3);
++					hex_cat(hexLine, hexWord, 3);
+ 					_fputts(hexLine, hexfile);
+ 					cfgsWritten += cfgsLeft;
+ 			   }
+@@ -890,7 +893,7 @@
+ 				{ // need a segment address
+ 					_stprintf_s(segmentLine, 80, ":02000004%04X", (uIDAddr >> 16));
+ 					_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(segmentLine));
+-					_tcsncat_s(segmentLine, hexWord, 3);
++					hex_cat(segmentLine, hexWord, 3);
+ 					pendingSegmentLine = true;
+ 				}
+ 
+@@ -953,11 +956,11 @@
+ 							_stprintf_s(hexWord, 32, "%08X", picFuncs->DeviceBuffers->UserIDs[arrayIndex + i]);
+ 							for (int j = 0; j < idBytesPerWord; j++)
+ 							{
+-								_tcsncat_s(hexLine, &hexWord[6 - 2 * j], 2);
++								hex_cat(hexLine, &hexWord[6 - 2 * j], 2);
+ 							}
+ 						}
+ 						_stprintf_s(hexWord, 32, "%02X\n", computeChecksum(hexLine));
+-						_tcsncat_s(hexLine, hexWord, 3);
++						hex_cat(hexLine, hexWord, 3);
+ 						_fputts(hexLine, hexfile);
+ 					}
+ 					fileAddress += 16;

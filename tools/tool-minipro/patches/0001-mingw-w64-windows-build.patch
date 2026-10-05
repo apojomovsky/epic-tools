@@ -1,0 +1,60 @@
+Cross-compile minipro for 64-bit Windows with mingw-w64.
+
+<Shlobj.h> only resolves on case-insensitive filesystems; the lowercase
+spelling builds on both. MSVC and mingw-w64 declare neither strndup nor
+stpcpy, so the Windows branch carries file-local spellings with the same
+contracts. zlib links statically on Windows so the binary ships without
+an extra DLL. To be offered upstream by the human so the queue can shrink.
+
+--- a/src/database.c
++++ b/src/database.c
+@@ -30,9 +30,32 @@
+ #include "database.h"
+ 
+ #ifdef _WIN32
+-#include <Shlobj.h>
++#include <shlobj.h>
+ #include <shlwapi.h>
+ #define STRCASESTR StrStrIA
++/* MSVC and mingw-w64 declare neither strndup nor stpcpy, so the Windows
++   build carries file-local spellings with the same contracts. Static keeps
++   them out of the link on hosts whose CRT does provide them. */
++static char *strndup(const char *s, size_t n)
++{
++	size_t len = 0;
++	while (len < n && s[len])
++		len++;
++	char *out = malloc(len + 1);
++	if (out) {
++		memcpy(out, s, len);
++		out[len] = '\0';
++	}
++	return out;
++}
++static char *stpcpy(char *dest, const char *src)
++{
++	while ((*dest = *src)) {
++		dest++;
++		src++;
++	}
++	return dest;
++}
+ #else
+ #define STRCASESTR strcasestr
+ #endif
+--- a/Makefile
++++ b/Makefile
+@@ -100,9 +100,12 @@
+     override LIBS += $(libusb_LIBS) $(zlib_LIBS) $(EXTRA_LIBS)
+ else
+ # Add Windows libs here
++# zlib links statically on Windows so the binary needs no extra DLL
++# beside it. libusb stays shared on Linux, where its licence asks for
++# relinkability; zlib's own licence asks for no such thing.
+ override LIBS += -lsetupapi \
+                  -lwinusb \
+-				 -lz
++				 -Wl,-Bstatic -lz -Wl,-Bdynamic
+ endif
+ 
+ 

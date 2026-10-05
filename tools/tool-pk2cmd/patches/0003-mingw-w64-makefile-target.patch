@@ -1,0 +1,54 @@
+Build pk2cmd for 64-bit Windows from its Makefile.
+
+The Windows sources already select themselves with WIN32 guards; only a
+target naming them was missing. It follows the existing per-target
+pattern, links the HID and setupapi system libraries, and holds the
+mingw runtime statically so the binary ships without extra DLLs.
+To be offered upstream by the human so the queue can shrink.
+
+--- a/pk2cmd/Makefile
++++ b/pk2cmd/Makefile
+@@ -39,6 +39,7 @@
+ #TARGET=freebsd
+ #TARGET=mac104
+ #TARGET=mac105
++#TARGET=windows
+ 
+ # ----- This may be necessary for OSX fink
+ #LIBUSB=/sw
+@@ -62,6 +63,15 @@
+ OBJS=cmd_app.o DeviceData.o DeviceFile.o ImportExportHex.o PICkitFunctions.o PIC32PE.o Pk2BootLoader.o pk2cmd.o stdafx.o pk2usbcommon.o pk2usbmacosx.o P24F_PE.o dsP33_PE.o strnatcmp.o
+ LDFLAGS=-framework IOKit -framework CoreFoundation
+ endif
++ifeq ($(TARGET),windows)
++# A mingw-w64 cross build from Linux. The Windows sources select themselves
++# with WIN32 guards; usbhidioc.o is the HID layer the Windows build links
++# instead of the libusb one. Runtime libraries stay static so the binary
++# needs no extra DLL beside it.
++CFLAGS=$(OPTS) -DWIN32
++OBJS=cmd_app.o DeviceData.o DeviceFile.o ImportExportHex.o PICkitFunctions.o PIC32PE.o Pk2BootLoader.o pk2cmd.o stdafx.o usbhidioc.o P24F_PE.o dsP33_PE.o strnatcmp.o
++LDFLAGS=-lhid -lsetupapi -static-libgcc -static-libstdc++
++endif
+ 
+ .PHONY: target
+ 
+@@ -104,6 +114,9 @@
+ pk2usb.o: pk2usb.cpp pk2usb.h
+ 	$(CC) $(CFLAGS) -o $@  -c $<
+ 
++usbhidioc.o: usbhidioc.cpp usbhidioc.h
++	$(CC) $(CFLAGS) -o $@  -c $<
++
+ pk2usbmacosx.o: pk2usbmacosx.cpp pk2usbmacosx.h pk2usb.h
+ 	$(CC) $(CFLAGS) -o $@  -c $<
+ 
+@@ -143,6 +156,9 @@
+ mac105:		# build for Mac OSX 10.5
+ 	$(MAKE) TARGET=mac105
+ 
++windows:	# build for 64-bit Windows with mingw-w64
++	$(MAKE) TARGET=windows CC=x86_64-w64-mingw32-g++ APP=pk2cmd.exe
++
+ # This must be last in the Makefile, or ugly things might happen
+ target:
+ ifeq ($(TARGET),)
