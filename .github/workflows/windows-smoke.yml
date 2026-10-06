@@ -14,7 +14,10 @@ on:
     paths:
       - 'tools/**'
       - 'scripts/build_tool.py'
+      # Both images the Windows set builds from: mingw-w64 for the C tools,
+      # python for the picpro vendored tree.
       - 'docker/build/windows.Dockerfile'
+      - 'docker/build/python.Dockerfile'
       - '.github/workflows/windows-smoke.yml'
       - '.github/workflows/release.yml'
 

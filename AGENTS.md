@@ -199,10 +199,10 @@ PlatformIO registry. Publication is skipped with a warning when
 itself.
 
 `.github/workflows/windows-smoke.yml` runs on `workflow_dispatch` and on PRs
-touching `tools/`, `scripts/build_tool.py` or `docker/build/windows.Dockerfile`:
-it builds the `windows_amd64` set as `release.yml` does, then executes each
-probe on `windows-latest`. `release.yml` repeats that probe as its
-`windows-smoke` job and publishes a `windows_amd64` asset only after it
+touching `tools/`, `scripts/build_tool.py` or the Windows or Python build
+images. It builds the `windows_amd64` set as `release.yml` does, then
+executes each probe on `windows-latest`. `release.yml` repeats that probe as
+its `windows-smoke` job and publishes a `windows_amd64` asset only after it
 passes. No hardware is attached, so every probe prints version or help text
 and never touches a programmer.
 
