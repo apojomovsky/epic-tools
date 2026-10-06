@@ -159,8 +159,8 @@ jobs:
               echo "Pinned upstream tag, patch queue, licence and redistribution"
               echo "notes: \`tools/${tool}/pin.json\`."
             } > /tmp/notes.md
-            # Both system jobs share one release: when the sibling wins the
-            # create race, fall back to uploading beside its archive.
+            # The Linux leg shares this release with publish-windows: when the
+            # other wins the create race, fall back to uploading beside it.
             gh release create "$tag" dist/*.tar.gz \
               --title "${tool} v${version}" --notes-file /tmp/notes.md \
               || gh release upload "$tag" dist/*.tar.gz --clobber
@@ -208,6 +208,8 @@ jobs:
     steps:
       - name: Decide whether this run covers the tool
         id: scope
+        # The body is bash while the runner defaults to pwsh, so name it.
+        shell: bash
         env:
           REQUESTED: ${{ inputs.package }}
           TOOL: ${{ matrix.tool }}
