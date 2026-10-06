@@ -7,6 +7,10 @@ name: release
 # project selects the tool. Publication is skipped with a warning when
 # PLATFORMIO_AUTH_TOKEN is absent, since no workflow can create that secret
 # for itself, so a repo without one still produces verifiable packages.
+#
+# A windows_amd64 asset publishes only after the windows-smoke job executes
+# its probe on windows-latest: a cross-built binary that never ran is not
+# published.
 
 on:
   push:
@@ -100,7 +104,9 @@ jobs:
           path: dist/*.tar.gz
 
       - name: Publish to this repo's Releases
-        if: steps.scope.outputs.selected == 'true'
+        # Linux publishes from the build job; a windows_amd64 asset waits for
+        # the windows-smoke job, so publish-windows carries it instead.
+        if: steps.scope.outputs.selected == 'true' && matrix.system == 'linux_x86_64'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT: ${{ github.event_name }}
@@ -155,6 +161,239 @@ jobs:
             } > /tmp/notes.md
             # Both system jobs share one release: when the sibling wins the
             # create race, fall back to uploading beside its archive.
+            gh release create "$tag" dist/*.tar.gz \
+              --title "${tool} v${version}" --notes-file /tmp/notes.md \
+              || gh release upload "$tag" dist/*.tar.gz --clobber
+          fi
+
+      - name: Publish to the PlatformIO registry
+        # Same split as above: Linux publishes here, Windows after the smoke.
+        if: steps.scope.outputs.selected == 'true' && matrix.system == 'linux_x86_64'
+        env:
+          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+          TOOL: ${{ matrix.tool }}
+        run: |
+          if [ -z "$PLATFORMIO_AUTH_TOKEN" ]; then
+            # Via env, not an inline expression: an expansion that wraps onto
+            # two lines injects a newline into the annotation, which GitHub
+            # truncates at the first line.
+            echo "::warning::PLATFORMIO_AUTH_TOKEN is not set, so $TOOL was built and released on GitHub but not published to the registry. Add the secret to publish: see README.md."
+            exit 0
+          fi
+          python3 -m pip install --quiet platformio
+          # --no-interactive is required: the runner has no TTY, and the
+          # command's default prompt would fail the step rather than publish.
+          # A version already published with this host's file set is refused
+          # by the registry, which is why the check above is a plain upload
+          # path and a duplicate fails loudly instead of silently republishing.
+          pio pkg publish --no-interactive --owner "${{ github.repository_owner }}" \
+            --type tool dist/*.tar.gz || {
+              echo "::error::registry publication failed; see README.md for the"
+              echo "secret and the owner check"
+              exit 1
+            }
+
+  windows-smoke:
+    # Executes each built windows_amd64 package on windows-latest before any
+    # of them publishes. Same probe as windows-smoke.yml; publish-windows
+    # needs this job, so a red smoke holds every Windows asset back.
+    needs: [build]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+    env:
+      SMOKE_TOOL: ${{ matrix.tool }}
+    steps:
+      - name: Decide whether this run covers the tool
+        id: scope
+        env:
+          REQUESTED: ${{ inputs.package }}
+          TOOL: ${{ matrix.tool }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          # Same selection as the build job: a tag run smokes only the tool
+          # the tag names, a dispatch the requested one or all.
+          if [ "$EVENT" = "push" ]; then
+            case "$REF" in
+              "${TOOL}-v"*) echo "selected=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "selected=false" >> "$GITHUB_OUTPUT" ;;
+            esac
+          elif [ -n "$REQUESTED" ]; then
+            if [ "$REQUESTED" = "$TOOL" ]; then
+              echo "selected=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "selected=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "selected=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.scope.outputs.selected == 'true'
+        with:
+          name: ${{ matrix.tool }}-windows_amd64
+          path: smoke-dist
+
+      - name: Unpack the package
+        if: steps.scope.outputs.selected == 'true'
+        shell: pwsh
+        run: |
+          $archive = Get-ChildItem smoke-dist/*.tar.gz | Select-Object -First 1 -ExpandProperty FullName
+          New-Item -ItemType Directory -Force -Path smoke/pkg | Out-Null
+          tar xzf $archive -C smoke/pkg
+          Get-ChildItem smoke/pkg
+
+      - name: Run the Windows probe
+        if: steps.scope.outputs.selected == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # No programmer hardware on CI, so each probe only prints version or
+          # help text and never touches a device. The commands and required
+          # strings mirror the pin's build.per_system.windows_amd64.verify.
+          $root = Join-Path $PWD 'smoke/pkg'
+          $tool = $env:SMOKE_TOOL
+          if ($tool -eq 'tool-minipro') {
+            # MINIPRO_HOME mirrors the Linux build probe, which exports it.
+            $env:MINIPRO_HOME = Join-Path $root 'share/minipro'
+            $exe = Join-Path $root 'minipro.exe'
+            $text = & $exe --version 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $want = 'minipro version'
+          } elseif ($tool -eq 'tool-pk2cmd') {
+            # The -?l flag and the banner match the Linux probe.
+            $exe = Join-Path $root 'pk2cmd.exe'
+            $text = & $exe -?l 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $want = 'modified by the epic8 project'
+          } elseif ($tool -eq 'tool-picpro') {
+            # The vendored tree is the import root, as the Linux probe sets it.
+            # The pin asserts only the exit code for picpro, so any help text
+            # passes once the exit code is 0.
+            $env:PYTHONPATH = Join-Path $root 'vendor'
+            $entry = Join-Path $root 'vendor/bin/picpro'
+            $text = & python $entry --help 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $want = ''
+          } else {
+            throw "unknown tool $tool"
+          }
+          if ($code -eq -1073741515) {
+            # 0xC0000135: the loader could not resolve an import, so a DLL is
+            # missing or a system one did not load.
+            throw "$tool failed to start, a DLL did not resolve (exit 0xC0000135)"
+          }
+          if ($code -ne 0) {
+            throw "$tool probe exited $code, expected 0: $text"
+          }
+          if ($want -ne '' -and -not $text.Contains($want)) {
+            throw "$tool probe output is missing '${want}': $text"
+          }
+          Write-Output "$tool smoke passed"
+
+  publish-windows:
+    # Carries the windows_amd64 assets the build job holds back. It needs the
+    # smoke, so no Windows package reaches a Release or the registry without
+    # executing on Windows first.
+    needs: [windows-smoke]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this run covers the tool
+        id: scope
+        env:
+          REQUESTED: ${{ inputs.package }}
+          TOOL: ${{ matrix.tool }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          # Same selection as the build job, so this publishes exactly the
+          # Windows assets that job built.
+          if [ "$EVENT" = "push" ]; then
+            case "$REF" in
+              "${TOOL}-v"*) echo "selected=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "selected=false" >> "$GITHUB_OUTPUT" ;;
+            esac
+          elif [ -n "$REQUESTED" ]; then
+            if [ "$REQUESTED" = "$TOOL" ]; then
+              echo "selected=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "selected=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "selected=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.scope.outputs.selected == 'true'
+        with:
+          name: ${{ matrix.tool }}-windows_amd64
+          path: dist
+
+      - name: Publish to this repo's Releases
+        if: steps.scope.outputs.selected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          tool="${{ matrix.tool }}"
+          version="$(python3 -c "
+          import sys; sys.path.insert(0, 'scripts')
+          import toolpin
+          print(toolpin.load_pin('tools/${tool}/pin.json')['version'])
+          ")"
+          upstream="$(python3 -c "
+          import sys; sys.path.insert(0, 'scripts')
+          import toolpin
+          pin = toolpin.load_pin('tools/${tool}/pin.json')
+          page = pin['upstream']['page']
+          tag = pin['upstream']['tag']
+          # GitLab separates the project path from its subpages with /-/;
+          # a GitHub page + /releases/tag works as is.
+          print(page + ('/-/releases/tag/' + tag if 'gitlab.com' in page
+                        else '/releases/tag/' + tag))
+          ")"
+          tag="${tool}-v${version}"
+          if [ "$EVENT" = "push" ] && [ "$REF" != "$tag" ]; then
+            # The pin is the version truth, so a tag naming another version
+            # fails here rather than publishing something the pin does not name.
+            echo "::error::tag $REF does not match the pin ($tag); bump tools/$tool/pin.json first"
+            exit 1
+          fi
+          compat="$(python3 -c "
+          import sys; sys.path.insert(0, 'scripts')
+          import toolpin
+          pin = toolpin.load_pin('tools/${tool}/pin.json')
+          core, rev = toolpin.split_package_version(pin['version'])
+          tag = pin['upstream']['tag']
+          if rev is None:
+              print('Wraps upstream ' + tag + ': the first packaging of that upstream.')
+          else:
+              print('Wraps upstream ' + tag + ': packaging revision ' + rev + ', no new upstream.')
+          ")"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.tar.gz --clobber
+          else
+            {
+              echo "Built from $upstream"
+              echo
+              echo "## Compatibility"
+              echo "$compat"
+              echo
+              echo "Pinned upstream tag, patch queue, licence and redistribution"
+              echo "notes: \`tools/${tool}/pin.json\`."
+            } > /tmp/notes.md
+            # The Linux build job shares this release: when it wins the create
+            # race, fall back to uploading beside its archive.
             gh release create "$tag" dist/*.tar.gz \
               --title "${tool} v${version}" --notes-file /tmp/notes.md \
               || gh release upload "$tag" dist/*.tar.gz --clobber

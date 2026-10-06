@@ -1,0 +1,119 @@
+name: windows-smoke
+
+# The Windows packages cross-build on Linux, so without this workflow nothing
+# ever executes them on Windows. It builds the windows_amd64 set exactly as
+# release.yml does, then unpacks each archive on windows-latest and runs its
+# probe: the pin's windows verify command with its required strings and exit
+# code 0. A missing DLL fails the loader with 0xC0000135 rather than exit 0,
+# so a green probe proves the imports resolve. No programmer hardware is
+# attached, so the probes print version or help text and never touch a device.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/**'
+      - 'scripts/build_tool.py'
+      - 'docker/build/windows.Dockerfile'
+      - '.github/workflows/windows-smoke.yml'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the pin
+        run: python3 scripts/toolpin.py --validate "tools/${{ matrix.tool }}/pin.json"
+
+      - name: Build the Windows package
+        run: |
+          python3 scripts/build_tool.py \
+            --pin "tools/${{ matrix.tool }}/pin.json" \
+            --system windows_amd64 \
+            --out dist
+          ls -lh dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.tool }}-windows_amd64
+          path: dist/*.tar.gz
+
+  smoke:
+    needs: [build]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+    env:
+      SMOKE_TOOL: ${{ matrix.tool }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.tool }}-windows_amd64
+          path: smoke-dist
+
+      - name: Unpack the package
+        shell: pwsh
+        run: |
+          $archive = Get-ChildItem smoke-dist/*.tar.gz | Select-Object -First 1 -ExpandProperty FullName
+          New-Item -ItemType Directory -Force -Path smoke/pkg | Out-Null
+          tar xzf $archive -C smoke/pkg
+          Get-ChildItem smoke/pkg
+
+      - name: Run the Windows probe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # No programmer hardware on CI, so each probe only prints version or
+          # help text and never touches a device. The commands and required
+          # strings mirror the pin's build.per_system.windows_amd64.verify.
+          $root = Join-Path $PWD 'smoke/pkg'
+          $tool = $env:SMOKE_TOOL
+          if ($tool -eq 'tool-minipro') {
+            # MINIPRO_HOME mirrors the Linux build probe, which exports it.
+            $env:MINIPRO_HOME = Join-Path $root 'share/minipro'
+            $exe = Join-Path $root 'minipro.exe'
+            $text = & $exe --version 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $want = 'minipro version'
+          } elseif ($tool -eq 'tool-pk2cmd') {
+            # The -?l flag and the banner match the Linux probe.
+            $exe = Join-Path $root 'pk2cmd.exe'
+            $text = & $exe -?l 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $want = 'modified by the epic8 project'
+          } elseif ($tool -eq 'tool-picpro') {
+            # The vendored tree is the import root, as the Linux probe sets it.
+            # The pin asserts only the exit code for picpro, so any help text
+            # passes once the exit code is 0.
+            $env:PYTHONPATH = Join-Path $root 'vendor'
+            $entry = Join-Path $root 'vendor/bin/picpro'
+            $text = & python $entry --help 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $want = ''
+          } else {
+            throw "unknown tool $tool"
+          }
+          if ($code -eq -1073741515) {
+            # 0xC0000135: the loader could not resolve an import, so a DLL is
+            # missing or a system one did not load.
+            throw "$tool failed to start, a DLL did not resolve (exit 0xC0000135)"
+          }
+          if ($code -ne 0) {
+            throw "$tool probe exited $code, expected 0: $text"
+          }
+          if ($want -ne '' -and -not $text.Contains($want)) {
+            throw "$tool probe output is missing '${want}': $text"
+          }
+          Write-Output "$tool smoke passed"
