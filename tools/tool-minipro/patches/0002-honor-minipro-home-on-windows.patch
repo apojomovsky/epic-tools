@@ -1,0 +1,55 @@
+Honor MINIPRO_HOME on Windows when looking for the device databases.
+
+The Windows branch of get_database_file ignored MINIPRO_HOME and read only
+from the shared ProgramData dir, so a caller-staged database dir worked on
+every host but Windows. MINIPRO_HOME now wins when set, with the shared dir
+as the fallback, matching the other hosts. To be offered upstream by the
+human so the queue can shrink.
+
+--- a/src/database.c
++++ b/src/database.c
+@@ -1322,19 +1322,33 @@
+ 
+ 	char path[MAX_PATH];
+ 	char appdata[MAX_PATH];
++	char *env_path = getenv("MINIPRO_HOME");
+ 
+-	/* Avoid buffer overruns and keep to maximum lengths */
+-	SHGetSpecialFolderPathA(NULL, appdata, CSIDL_COMMON_APPDATA, 0);
+-	int count =
+-		snprintf(path, sizeof(path), "%s\\minipro\\%s", appdata, name);
++	if (env_path != NULL) {
++		/* A caller-staged database dir wins over the shared one,
++		   as on every other host. */
++		int count =
++			snprintf(path, sizeof(path), "%s/%s", env_path, name);
++		if (count < 0 || count >= sizeof(path)) {
++			fprintf(stderr, "Path %s/%s is too long.\n", env_path,
++				name);
++			return NULL;
++		}
++	} else {
++		/* Avoid buffer overruns and keep to maximum lengths */
++		SHGetSpecialFolderPathA(NULL, appdata, CSIDL_COMMON_APPDATA, 0);
++		int count =
++			snprintf(path, sizeof(path), "%s\\minipro\\%s", appdata,
++				name);
+ 
+-	/* C99 and Windows (before Windows 10) differ in semantics.
+-	 * Check both cases.
+-	 */
+-	if (count < 0 || count >= sizeof(path)) {
+-		fprintf(stderr, "Path %s\\minipro\\%s is too long.\n", appdata,
+-			name);
+-		return NULL;
++		/* C99 and Windows (before Windows 10) differ in semantics.
++		 * Check both cases.
++		 */
++		if (count < 0 || count >= sizeof(path)) {
++			fprintf(stderr, "Path %s\\minipro\\%s is too long.\n",
++				appdata, name);
++			return NULL;
++		}
+ 	}
+ 	path[sizeof(path) - 1] = '\0'; /* Not needed now, but it can't hurt! */
+ 
