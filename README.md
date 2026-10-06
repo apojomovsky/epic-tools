@@ -110,7 +110,10 @@ A tag `<tool>-v<version>` runs `release.yml`, which refuses a tag that does
 not match the pin, builds the package, verifies the licence and source
 reference are in the archive, attaches it to a GitHub Release titled
 `<package> v<version>`, and publishes it to the PlatformIO registry. A manual
-`workflow_dispatch` does the same for one tool or all of them.
+`workflow_dispatch` does the same for one tool or all of them. A
+`windows_amd64` asset publishes only after the `windows-smoke` job executes
+its probe on `windows-latest`; PRs touching `tools/`, the build driver or
+the Windows or Python images run the same smoke through `windows-smoke.yml`.
 
 The version names the wrapped upstream: bare for the first packaging of that
 upstream, plus a `+pioN` packaging revision for a fix with no new upstream
