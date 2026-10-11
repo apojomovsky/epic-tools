@@ -57,11 +57,26 @@ For every ticket:
    Only then run the takeoff ritual (`epic-tasks takeoff`).
 4. Open the pull request with `Closes #N`, then
    `epic-tasks review <repo>#<n> --pr <url>`. The body must use real newlines:
-   copy-paste-safe ``gh pr create --body-file - <<'EOF'`` (or
-   ``cat <<'EOF' > /tmp/pr_body.md`` + ``gh pr create --body-file /tmp/pr_body.md``),
+   copy-paste-safe ``gh pr create --body-file - <<'EOF'`` (or write the body to a
+   unique file, as below),
    NEVER ``gh pr create --body "a\nb"``, the shell never expands ``\n`` so GitHub
    renders literal ``\n`` as text and the bullets collapse to one line
    (epic-cc#129).
+   ```bash
+   issue=N; pr_body=$(mktemp "/tmp/pr-${issue}-XXXXXX.md")
+   cat <<'EOF' > "$pr_body"
+   Closes #N
+
+   Summary of the change.
+
+   - bullet one
+   - bullet two
+   EOF
+   gh pr create --title "fix(scope): summary" --body-file "$pr_body"
+   ```
+   NEVER a fixed path such as ``/tmp/pr_body.md``: ``/tmp`` is shared across
+   agents on a machine, and another agent overwrote it, so an epic-tasks PR #444
+   opened with ``Closes #379`` (epic-tasks#446).
 5. After the PR merges, remove the worktree:
    `git worktree remove .worktrees/<name>`. Never remove a worktree before
    merge, the branch must stay reachable for review.
