@@ -60,9 +60,30 @@ else
     echo "pre-push: epic-tasks not found, prose gate skipped" >&2
 fi
 
+# ---- suite stamp (epic-tasks#754) ------------------------------------
+# A verified push retries a dropped connection; the retry must not pay
+# for the suite twice. Stamp the tree the suite already passed, keyed on
+# the tree hash plus this hook's own content hash, so any tree or hook
+# change runs the suite again. `git hash-object` is the shared algorithm:
+# the push helper reads the same stamp for its own checks.
+stamp_file="$(git rev-parse --absolute-git-dir 2>/dev/null)/epic-pre-push-stamp"
+tree="$(git rev-parse 'HEAD^{tree}' 2>/dev/null)"
+hook_sum="$(git hash-object "${0}" 2>/dev/null)"
+if [ -n "$tree" ] && [ -n "$hook_sum" ] && [ -f "$stamp_file" ] \
+    && grep -qx "$tree $hook_sum" "$stamp_file" 2>/dev/null; then
+    echo "pre-push: suite already passed for this tree, skipping"
+    exit 0
+fi
+
 # ---- local CI (only reached when the push is not refused) ------------
 
 python3 -m unittest discover -t . -s tests >/dev/null || {
     echo "pre-push: test suite failed (python3 -m unittest discover -t . -s tests)" >&2
     exit 2
 }
+
+# The suite passed on this tree under this hook: stamp it so a retry of
+# the same push skips the re-run above.
+if [ -n "$tree" ] && [ -n "$hook_sum" ] && [ -n "$stamp_file" ]; then
+    printf '%s %s\n' "$tree" "$hook_sum" > "$stamp_file" 2>/dev/null || true
+fi
