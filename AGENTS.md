@@ -154,6 +154,12 @@ outstanding. Don't skip it.
   the guard is triggered, rebase onto master and get the human's explicit
   go-ahead before re-running with `EPIC_FORCE_PUSH_APPROVED=1 git push
   --force-with-lease`.
+- **Push through the helper.** Run `epic-tasks push` instead of `git push`: it
+  verifies the remote ref after the pre-push hook and retries once without
+  re-running the suite. Trust its exit code: 0 means the branch landed and the
+  remote matches `HEAD`, 3 means the remote is unreachable, anything else means
+  the push did not land (check the output, never push again by hand to "make
+  sure"). The helper runs the hooks; `--no-verify` stays forbidden.
 - **A pin is a redistribution statement.** Every package ships its licence and
   a source reference (D-10), and each tool's licence adds its own terms. Never
   ship a package built from an archive whose digest does not match the pin, and
