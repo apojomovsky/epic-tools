@@ -111,10 +111,9 @@ def validate(pin):
     if not isinstance(license_spec, dict) or not license_spec.get("file"):
         problems.append("license must name the upstream file it ships")
     elif not license_spec.get("spdx") and not license_spec.get("name"):
-        # PlatformIO validates the manifest's license against the SPDX list, so
-        # a licence with no identifier (Microchip's PK2CMD) carries its name
-        # instead and the manifest field is left out.
         problems.append("license needs an spdx id or a name")
+    elif not license_spec.get("spdx") and not license_slug(license_spec.get("name")):
+        problems.append("license name has no word a LicenseRef can be built from")
 
     upstream = pin["upstream"]
     if not isinstance(upstream, dict):
@@ -291,6 +290,21 @@ def effective_build(pin, system):
     return merged
 
 
+def license_slug(name):
+    """The LicenseRef tail for a licence with no SPDX id, or "" when none."""
+    return "-".join(re.findall(r"[A-Za-z0-9]+", str(name or "")))
+
+
+def license_id(pin):
+    """The manifest's license value: the SPDX id, or the shipped text's ref."""
+    spdx = pin["license"].get("spdx")
+    if spdx:
+        return spdx
+    # A missing field reads as MIT on the registry (2026-10-14), so a licence
+    # with no SPDX id is named as a LicenseRef whose text the package ships.
+    return f"LicenseRef-{license_slug(pin['license'].get('name'))}"
+
+
 def manifest(pin, system, version=None):
     """The package.json PlatformIO reads, minus what the caller fills in."""
     data = {
@@ -307,11 +321,12 @@ def manifest(pin, system, version=None):
     }
     if pin.get("keywords"):
         data["keywords"] = list(pin["keywords"])
-    spdx = pin["license"].get("spdx")
-    if spdx:
-        # Left out entirely when the licence has no SPDX identifier: the field
-        # is validated against the list, and a wrong id is worse than none.
-        data["license"] = spdx
+    # Both fields are unconditional: a missing license displays as MIT and a
+    # missing readme leaves the registry page without its README, so omitting
+    # either mislabels the package. README.md is the tarball-root file
+    # assemble() guarantees, and the LicenseRef text is the shipped licence.
+    data["license"] = license_id(pin)
+    data["readme"] = "README.md"
     if pin.get("authors"):
         data["authors"] = pin["authors"]
     return data
