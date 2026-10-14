@@ -1,150 +1,100 @@
-<h1 align="center">epic-tools</h1>
+# epic-tools
 
-<p align="center"><em>PlatformIO tool packages for the programmers the epic8 platform flashes with.</em></p>
+Programmer software for epic8, packaged for PlatformIO.
 
-<p align="center">
+epic-tools turns three popular PIC programmers into PlatformIO tool packages.
+Once they are in place, `pio run -t upload` finds the right programmer
+software for your computer and writes your program to the chip, with nothing
+to build or install by hand.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![CI](https://github.com/apojomovsky/epic-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/apojomovsky/epic-tools/actions/workflows/ci.yml) [![status: early](https://img.shields.io/badge/status-early-yellow.svg)](#status)
+## What a tool package is
 
-</p>
+A PlatformIO tool package is a folder that PlatformIO downloads and keeps for
+you. It holds a command line program that PlatformIO runs on your behalf, so
+you never start it by hand.
 
-[platform-epic8](https://github.com/apojomovsky/epic-platformio) makes `pio run`
-compile a PIC project with [epic-cc](https://github.com/apojomovsky/epic-cc).
-Flashing it needs a programmer tool, and the tools hobbyists own (`minipro` for
-the XGecu TL866 series, `pk2cmd` for the PICkit family, `picpro` for the
-Kitsrus K150) are not in any distribution. This repository turns each of them
-into a PlatformIO tool package, so `pio run -t upload` resolves the right
-binary for the host without the user building anything.
+Each package is built from the original upstream project, at one exact
+release, with a few small changes the build needs. The download is checked
+before it is unpacked. Each package carries its licence and a source
+reference, and minipro also ships its exact source tarball.
 
-## Pinned upstream plus a patch queue, not a fork
+## Which programmers
 
-Every tool is one directory under `tools/` holding a `pin.json`: the upstream
-tag, the commit it resolved to, the sha256 of the exact source archive, the
-licence, and what a build should produce.
-
-```json
-{
-  "package": "tool-minipro",
-  "version": "0.7.4",
-  "upstream": {
-    "url": "https://gitlab.com/DavidGriffith/minipro/-/archive/0.7.4/minipro-0.7.4.tar.gz",
-    "tag": "0.7.4",
-    "commit": "3808aecb6a1dac9906a9691b93820ee1bd2b7a18",
-    "sha256": "e41fb5a97c74a7e9c7d012e864a622096e819180bec504069e34664f6a360531"
-  },
-  "license": {"spdx": "GPL-3.0-or-later", "file": "LICENSE"},
-  "build": {"kind": "make", "output": "minipro"},
-  "systems": ["linux_x86_64"]
-}
-```
-
-When a change is needed before it reaches upstream, it lands as a numbered
-patch in that tool's `patches/` directory rather than as a long-lived fork.
-The queue is meant to be short: each patch is offered upstream by the human
-(never by an agent, see `AGENTS.md`), and the pin moves forward when it lands. An empty `patches/` is the goal state, not an
-unfinished one.
-
-The digest is checked before anything unpacks it. A silently re-cut upstream
-tag fails the build instead of producing a package built from something other
-than what the pin names.
-
-## Building
-
-Nothing but docker is needed on the host; the toolchain lives in the pinned
-build image.
-
-```bash
-make build                              # every tool into dist/ (SYSTEM picks the host)
-make build SYSTEM=windows_amd64         # the Windows set
-make build-tool TOOL=tool-minipro       # one tool
-make test                               # the suite CI runs
-```
-
-Each build fetches the pinned archive, verifies its digest, applies the patch
-queue, builds in a container, and writes a PlatformIO package. The C tools
-build in `docker/build/Dockerfile`, pinned by digest to `ubuntu:22.04`: a
-released binary inherits that image's glibc as its compatibility floor, which
-is why the base is pinned rather than tracking a tag. Their Windows builds
-cross-compile with mingw-w64 in `docker/build/windows.Dockerfile`, on the
-same base: a PE binary inherits no glibc floor, so one base serves both.
-`picpro` is pure Python and needs 3.12, above that image's 3.10, so it builds
-in its own `docker/build/python.Dockerfile`.
-
-## What every package ships
-
-D-10 of [docs/46](https://github.com/apojomovsky/epic-cc/blob/master/docs/46-public-beta-design.md)
-requires each package to carry its licence and a source reference, and each
-tool's licence adds its own obligations. All of it is in the package, so
-nobody has to reconstruct it from a release page.
-
-| Package | Upstream | Licence | What ships |
+| Programmer | Package | Upstream project | Licence |
 |---|---|---|---|
-| `tool-minipro` | gitlab.com/DavidGriffith/minipro 0.7.4 | GPL-3.0-or-later | Binary, `LICENSE`, `SOURCE.txt`, the exact upstream source tarball, `infoic.xml`/`logicic.xml`, libusb as a shared library |
-| `tool-pk2cmd` | github.com/jaka-fi/pk2cmd v1.27.01 | Microchip PK2CMD | Binary, `license.txt`, `NOTICE.txt`, `PATCHES.txt`, Microchip's own `PK2DeviceFile.dat` 1.62.14, libusb as a shared library |
-| `tool-picpro` | github.com/Salamek/picpro 0.4.1 | GPL-2.0-only | Vendored Python with every dependency's `dist-info` (which carries its own licence), `LICENSE`, `SOURCE.txt` |
+| XGecu TL866 series and T48 | `tool-minipro` | [minipro](https://gitlab.com/DavidGriffith/minipro) | GPL-3.0-or-later |
+| PICkit2, PICkit3 and PKOB | `tool-pk2cmd` | [pk2cmd](https://github.com/jaka-fi/pk2cmd) (jaka-fi fork) | Microchip PK2CMD Software License |
+| Kitsrus K150 and close relatives | `tool-picpro` | [picpro](https://github.com/Salamek/picpro) | GPL-2.0-only |
 
-libusb (LGPL-2.1) is bundled as a shared library, never linked statically, so
-a user can replace it with their own build. It is resolved through a relative
-`RUNPATH` (`$ORIGIN/lib`), so the package works without `LD_LIBRARY_PATH` and
-without a system-wide install.
+Each programmer needs its own wiring and driver setup. The guide for each one
+is in the platform repository, linked below.
 
-`pk2cmd` is distributed under Microchip's licence, not an open-source one.
-Clause 1(b) permits distributing a modified version for use with Microchip
-products provided a fixed copyright and modified-by notice is posted where end
-users will see it. Upstream's own `-?l` banner prints that notice with
-Microchip's literal `[INSERT YOUR NAME...]` placeholder, which satisfies
-nothing, so `patches/0001-fill-the-modified-by-notice.patch` names the
-modifier and the build refuses to package a binary whose banner does not carry
-the completed text. `NOTICE.txt` repeats it in the package itself.
+## How PlatformIO users get them
 
-The device file is not the one in the jaka-fi tree. That file carries entries
-the PICkitPlus team added, and jaka-fi withdrew it on 2026-09-27 after their
-copyright claim. The package ships Microchip's 1.62.14 file instead,
-pinned by URL and digest in the pin's `data_files`. It covers every curated
-beta part but not the MSB-first (MSB1st) families; for those, point
-`EPIC8_PK2CMD_PATH` at a build with a device file of your own.
-
-## Releasing
-
-A tag `<tool>-v<version>` runs `release.yml`, which refuses a tag that does
-not match the pin, builds the package, verifies the licence and source
-reference are in the archive, attaches it to a GitHub Release titled
-`<package> v<version>`, and publishes it to the PlatformIO registry. A manual
-`workflow_dispatch` does the same for one tool or all of them. A
-`windows_amd64` asset publishes only after the `windows-smoke` job executes
-its probe on `windows-latest`; PRs touching `tools/`, the build driver or
-the Windows or Python images run the same smoke through `windows-smoke.yml`.
-
-The version names the wrapped upstream: bare for the first packaging of that
-upstream, plus a `+pioN` packaging revision for a fix with no new upstream
-(`1.27.1+pio1`). A new upstream returns to the bare version. `devfile-*`
-releases are versioned device data and keep their own titles.
-
-**Registry publication needs a secret no workflow can create for itself.**
-Add `PLATFORMIO_AUTH_TOKEN` to this repository's Actions secrets, from
-`pio account token`, with the account's own username as the registry owner.
-Without it a run still builds the package and publishes the GitHub Release,
-with a warning, so a missing secret degrades rather than blocks.
-
-Once published, a package is installed by name:
+You normally do not install these packages by hand. The epic8 platform lists
+each one as a dependency. When your project chooses a programmer with
+`upload_protocol`, PlatformIO fetches the matching package the first time you
+upload.
 
 ```ini
 ; platformio.ini
-[env:upload]
+[env:blink]
 platform = apojomovsky/epic8
+board = pic16f877a
 upload_protocol = minipro
 ```
 
-## Status
+The protocol names are `minipro`, `pk2cmd` and `picpro`. Pick the one that
+matches the programmer on your desk, then run `pio run -t upload` as usual.
 
-Early. The repository skeleton, the patch-queue build and the per-host
-publishing path are in place; the individual tool packages are tracked as
-epic-platformio#41 (`tool-minipro`), #42 (`tool-pk2cmd`) and #43
-(`tool-picpro`). Both `linux_x86_64` and `windows_amd64` are built: the C
-tools cross-compile with mingw-w64, and `picpro` vendors the same tree minus
-its host-tagged binaries.
+Programmer guides: [minipro](https://github.com/apojomovsky/epic-platformio/blob/master/docs/programmers/minipro.md),
+[pk2cmd](https://github.com/apojomovsky/epic-platformio/blob/master/docs/programmers/pk2cmd.md) and
+[picpro](https://github.com/apojomovsky/epic-platformio/blob/master/docs/programmers/picpro.md).
 
-## Licence
+## Licences
 
-MIT for this repository's own content. The tools it packages keep their own
-licences, listed above and carried inside each package.
+The content of this repository is MIT licensed, see [LICENSE](LICENSE). The
+tools it packages keep their own licences, and each package ships the licence
+that applies to it.
+
+- **minipro** is GPL-3.0-or-later. The package includes the exact source it
+  was built from, so you can rebuild the program you flash with.
+- **pk2cmd** is not open source. It is under Microchip's PK2CMD Software
+  License, which allows redistribution for use with Microchip products when
+  the copyright notice is shown. The package includes the licence and a
+  `NOTICE.txt` file. This is the project's reading of that licence, not legal
+  advice.
+- **picpro** is GPL-2.0-only. Its bundled Python libraries keep their own
+  licences inside the package.
+- **libusb** is LGPL-2.1. On Linux it is shipped as a separate shared library,
+  never linked into the program, so you can replace it with your own build.
+  The Windows packages do not bundle libusb.
+
+## Building the packages yourself
+
+You need docker and python3. The compilers and libraries live in the build
+images, so nothing else is installed on your computer.
+
+```bash
+make build                          # every tool for linux_x86_64 into dist/
+make build-tool TOOL=tool-minipro   # one tool
+make test                           # the test suite
+```
+
+Add `SYSTEM=windows_amd64` to build the Windows packages on Linux. Contributors
+should read [AGENTS.md](AGENTS.md) first.
+
+## Where this fits
+
+epic-tools only supplies the programmers. The C compiler is
+[epic-cc](https://github.com/apojomovsky/epic-cc), the hardware abstraction
+layer is [epic-hal](https://github.com/apojomovsky/epic-hal), and the
+PlatformIO platform that names these packages is
+[epic-platformio](https://github.com/apojomovsky/epic-platformio). The
+[epic8 hub](https://apojomovsky.github.io/epic-docs/) has the getting started
+guides.
+
+## Problems
+
+Report a package that fails to install here. A bug in the upstream program
+belongs to the upstream project, which is not responsible for these builds.
