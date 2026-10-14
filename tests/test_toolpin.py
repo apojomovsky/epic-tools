@@ -65,6 +65,18 @@ class ValidateTest(unittest.TestCase):
         pin["license"] = {"file": "LICENSE"}
         self.assertTrue(any("spdx id or a name" in p for p in toolpin.validate(pin)))
 
+    def test_a_licence_with_a_name_but_no_id_is_accepted(self):
+        pin = base_pin()
+        pin["license"] = {"name": "Microchip PK2CMD Software License",
+                          "file": "license.txt"}
+        self.assertEqual(toolpin.validate(pin), [])
+
+    def test_a_licence_name_without_a_word_for_a_ref_is_rejected(self):
+        pin = base_pin()
+        pin["license"] = {"name": "!!!", "file": "license.txt"}
+        self.assertTrue(any("LicenseRef" in p for p in toolpin.validate(pin)))
+
+
     def test_a_make_build_must_name_its_output(self):
         pin = base_pin()
         del pin["build"]["output"]
@@ -290,18 +302,23 @@ class ManifestTest(unittest.TestCase):
         self.assertIn("windows_amd64", data["system"])
         self.assertIn("windows_x86_64", data["system"])
 
-    def test_a_licence_without_an_spdx_id_omits_the_manifest_field(self):
-        # PlatformIO validates the field against the SPDX list, so carrying a
-        # made-up id is worse than carrying none.
+    def test_a_licence_without_an_spdx_id_becomes_a_license_ref(self):
+        # A missing field reads as MIT on the registry, so the manifest names
+        # the shipped licence text instead of leaving the field out.
         pin = base_pin()
         pin["license"] = {"name": "Microchip PK2CMD Software License",
                           "file": "license.txt"}
         data = toolpin.manifest(pin, "linux_x86_64")
-        self.assertNotIn("license", data)
+        self.assertEqual(data["license"],
+                         "LicenseRef-Microchip-PK2CMD-Software-License")
 
-    def test_an_spdx_id_carries_into_the_manifest(self):
-        data = toolpin.manifest(base_pin(), "linux_x86_64")
-        self.assertEqual(data["license"], "MIT")
+    def test_every_manifest_carries_a_licence_and_a_readme(self):
+        for pin in [base_pin()] + [toolpin.load_pin(ROOT / "tools" / name
+                                                    / "pin.json")
+                                   for name in REAL_TOOLS]:
+            data = toolpin.manifest(pin, pin["systems"][0])
+            self.assertTrue(data["license"], pin["package"])
+            self.assertEqual(data["readme"], "README.md", pin["package"])
 
     def test_a_pin_homepage_overrides_the_upstream_page(self):
         pin = base_pin()
