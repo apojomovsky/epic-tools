@@ -30,7 +30,7 @@ BUILD_KINDS = ("make", "python")
 # states its own CC beside whatever the base carries.
 PER_SYSTEM_BUILD_KEYS = (
     "make_args", "extra_make_vars", "ldflags", "output", "verify",
-    "bundled_libraries",
+    "bundled_libraries", "configure_args", "strip",
 )
 
 # Applied in filename order, so a queue that has to be ordered is numbered by
@@ -63,12 +63,21 @@ def upstream_version(tag):
     """The X.Y.Z a tag names, or None for a tag with no plain version.
 
     Folds the leading v and leading zeros (v1.27.01 folds to 1.27.1), since
-    SemVer forbids both and the pin compares folded forms.
+    SemVer forbids both and the pin compares folded forms. A two-component
+    X.Y names the .0 patch, a trailing -release is the release-tag suffix,
+    and a <name>- prefix is the project name (gdb-17.2-release is 17.2.0).
     """
     text = str(tag).strip()
     if text[:1] in ("v", "V"):
         text = text[1:]
-    parts = text.split(".")
+    if text.endswith("-release"):
+        text = text[:-len("-release")]
+    first = next((n for n, ch in enumerate(text) if ch.isdigit()), None)
+    if first is None:
+        return None
+    parts = text[first:].split(".")
+    if len(parts) == 2 and all(part.isdigit() for part in parts):
+        parts.append("0")
     if len(parts) != 3 or not all(part.isdigit() for part in parts):
         return None
     return ".".join(str(int(part)) for part in parts)
@@ -137,6 +146,15 @@ def validate(pin):
         problems.append(f"build.kind must be one of {', '.join(BUILD_KINDS)}")
     elif build["kind"] == "make" and not build.get("output"):
         problems.append("a make build must name its built binary in build.output")
+    if isinstance(build, dict):
+        args = build.get("configure_args")
+        if args is not None and (
+            not isinstance(args, list) or not args
+            or not all(isinstance(a, str) and a.strip() for a in args)
+        ):
+            problems.append("build.configure_args must be a non-empty list of strings")
+        if "strip" in build and not isinstance(build["strip"], bool):
+            problems.append("build.strip must be true or false")
 
     systems = pin["systems"]
     if not isinstance(systems, list) or not systems:
