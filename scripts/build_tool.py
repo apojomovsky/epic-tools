@@ -130,6 +130,14 @@ def run_make(source_dir, pin, system):
     # A PE binary has no RUNPATH, so the Windows cross passes no rpath flag
     # and no LDFLAGS at all when the pin states none, letting the Makefile's
     # own Windows link stand.
+    if build.get("configure_args") is not None:
+        # An autoconf upstream has no Makefile until configured. The step runs
+        # in the source tree because the pin's output path is relative to it.
+        configure = [str(work_dir / "configure"), *build["configure_args"]]
+        log(" ".join(configure))
+        result = subprocess.run(configure, cwd=work_dir, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise SystemExit(f"configure failed:\n{result.stdout[-4000:]}{result.stderr[-4000:]}")
     command = ["make", *list(build.get("make_args", []))]
     if system == "windows_amd64":
         if build.get("ldflags"):
@@ -146,6 +154,26 @@ def run_make(source_dir, pin, system):
     built = work_dir / build["output"]
     if not built.exists():
         raise SystemExit(f"make reported success but {built} is missing")
+    libraries = build.get("bundled_libraries")
+    if libraries is None:
+        libraries = pin.get("bundled_libraries", [])
+    if libraries and system != "windows_amd64" and build.get("configure_args") is not None:
+        # Autoconf re-passes LDFLAGS through nested "LDFLAGS=$(LDFLAGS)"
+        # lines, and that expansion eats the $ORIGIN the RUNPATH needs (a
+        # two-level scratch Makefile reproduces it). Plain Makefiles keep
+        # the quoting, so only a configured build needs this repair.
+        patched = subprocess.run(
+            ["patchelf", "--set-rpath", "$ORIGIN/lib", str(built)],
+            capture_output=True, text=True)
+        if patched.returncode != 0:
+            raise SystemExit(f"patchelf failed:\n{patched.stdout[-2000:]}{patched.stderr[-2000:]}")
+    if build.get("strip"):
+        # A debugger ships 170 MB of symbols it never needs at runtime;
+        # stripping is what keeps the registry package near 10 MB.
+        stripped = subprocess.run(["strip", "--strip-all", str(built)],
+                                  capture_output=True, text=True)
+        if stripped.returncode != 0:
+            raise SystemExit(f"strip failed:\n{stripped.stdout[-2000:]}{stripped.stderr[-2000:]}")
     return built
 
 

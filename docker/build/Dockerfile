@@ -14,16 +14,21 @@ FROM ubuntu:22.04@sha256:79676deb51ebb02885b0b9d33788e78a37cf1045ad79d1bb04c6a22
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# build-essential/g++ for minipro and pk2cmd, pkg-config plus the two dev
-# packages minipro's Makefile hard-requires and refuses to configure without,
-# git because the patch queue is applied with `git apply`, python3 and pip
-# for picpro's vendoring, and ca-certificates/curl so any future pin that
-# fetches over HTTPS works without editing this file.
+# build-essential/g++ for the C tools, pkg-config plus the two dev packages
+# minipro's Makefile hard-requires and refuses to configure without,
+# libgmp-dev and libmpfr-dev because gdb's configure refuses to run without
+# GMP 4.2+ and MPFR 3.1.0+, git because the patch queue is applied with
+# `git apply`, python3 and pip for picpro's vendoring, and
+# ca-certificates/curl so any future pin that fetches over HTTPS works
+# without editing this file.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         pkg-config \
         libusb-1.0-0-dev \
         zlib1g-dev \
+        libgmp-dev \
+        libmpfr-dev \
+        patchelf \
         git \
         python3 \
         python3-pip \
