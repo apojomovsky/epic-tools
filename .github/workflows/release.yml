@@ -32,8 +32,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-gdb]
         system: [linux_x86_64, windows_amd64]
+        exclude:
+          # tool-gdb ships Linux only until its Windows follow-up lands.
+          - tool: tool-gdb
+            system: windows_amd64
     steps:
       - uses: actions/checkout@v4
 

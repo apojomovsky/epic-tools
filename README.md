@@ -1,8 +1,8 @@
 # epic-tools
 
-Programmer software for 8-bit PICs (pk2cmd, minipro, picpro), packaged so
-PlatformIO installs and runs it for you. The packaging is MIT licensed; each
-programmer keeps its upstream licence.
+Programmer software for 8-bit PICs (pk2cmd, minipro, picpro) plus a GDB
+client for debugging them, packaged so PlatformIO installs and runs it for
+you. The packaging is MIT licensed; each program keeps its upstream licence.
 
 ## What a tool package is
 
@@ -13,7 +13,7 @@ you never start it by hand.
 Each package is built from the original upstream project, at one exact
 release, with a few small changes the build needs. The download is checked
 before it is unpacked. Each package carries its licence and a source
-reference, and minipro also ships its exact source tarball.
+reference, and minipro and gdb also ship their exact source tarballs.
 
 ## Which programmers
 
@@ -25,6 +25,16 @@ reference, and minipro also ships its exact source tarball.
 
 Each programmer needs its own wiring and driver setup. The guide for each one
 is in the platform repository, linked below.
+
+## Which debuggers
+
+| Use | Package | Upstream project | Licence |
+|---|---|---|---|
+| Source-level debug of epic8 firmware | `tool-gdb` | [GDB](https://sourceware.org/gdb/) | GPL-3.0-or-later |
+
+The gdb client loads the ELF+DWARF sidecar epic-cc emits and talks to the
+simulator adapter over the remote protocol, so `pio debug` needs no system
+gdb. Linux only for now; Windows follows separately.
 
 ## How PlatformIO users get them
 
@@ -66,6 +76,11 @@ that applies to it.
 - **libusb** is LGPL-2.1. On Linux it is shipped as a separate shared library,
   never linked into the program, so you can replace it with your own build.
   The Windows packages do not bundle libusb.
+- **gdb** is GPL-3.0-or-later. The package includes the exact source it was
+  built from, and gdb stays a separate program, never linked into MIT code.
+- **GMP and MPFR** are LGPL-3.0. On Linux they ride as separate shared
+  libraries under the gdb package's `lib/`, so you can replace them with
+  your own builds.
 
 ## Building the packages yourself
 

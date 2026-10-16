@@ -252,8 +252,9 @@ the upstream X.Y.Z, bare for the first packaging of that upstream and with
 a `+pioN` packaging revision after that (`0.7.4`, then `0.7.4+pio1`). A new
 upstream returns to the bare version, never a higher revision. `toolpin.py`
 rejects any version that does not fold to the pinned `upstream.tag`
-(`v1.27.01` folds to `1.27.1`), and a packaging fix never reuses a served
-number. Consumers pin exact versions, never ranges.
+(`v1.27.01` folds to `1.27.1`; a two-part `X.Y` names the `.0` patch, so
+`gdb-17.2-release` folds to `17.2.0`), and a packaging fix never reuses a
+served number. Consumers pin exact versions, never ranges.
 
 A release is a `<tool>-v<version>` tag carrying the full string
 (`tool-minipro-v0.7.4+pio1`); `release.yml` refuses a tag that does not

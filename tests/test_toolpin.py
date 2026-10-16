@@ -10,6 +10,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -17,7 +18,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import toolpin  # noqa: E402
 import build_tool  # noqa: E402
 
-REAL_TOOLS = ("tool-minipro", "tool-pk2cmd", "tool-picpro")
+REAL_TOOLS = ("tool-minipro", "tool-pk2cmd", "tool-picpro", "tool-gdb")
 
 
 def base_pin():
@@ -92,6 +93,21 @@ class ValidateTest(unittest.TestCase):
         pin["build"] = {"kind": "cmake", "output": "demo"}
         self.assertTrue(any("build.kind" in p for p in toolpin.validate(pin)))
 
+    def test_a_configure_step_must_be_a_non_empty_string_list(self):
+        pin = base_pin()
+        pin["build"]["configure_args"] = ["--disable-ld"]
+        self.assertEqual(toolpin.validate(pin), [])
+        for bad in ([], ["--ok", 3], "--disable-ld", [""], ["  "]):
+            pin["build"]["configure_args"] = bad
+            self.assertTrue(any("configure_args" in p for p in toolpin.validate(pin)), bad)
+
+    def test_a_strip_flag_must_be_a_bool(self):
+        pin = base_pin()
+        pin["build"]["strip"] = True
+        self.assertEqual(toolpin.validate(pin), [])
+        pin["build"]["strip"] = "yes"
+        self.assertTrue(any("strip" in p for p in toolpin.validate(pin)))
+
     def test_a_data_file_from_the_upstream_tree_is_valid(self):
         pin = base_pin()
         pin["data_files"] = [{"from": "db.xml", "to": "share/db.xml"}]
@@ -164,7 +180,7 @@ class LoadPinTest(unittest.TestCase):
 
 
 class ShippedPinsTest(unittest.TestCase):
-    """The three real pins are the repo's contract with its own CI."""
+    """The four real pins are the repo's contract with its own CI."""
 
     def test_every_shipped_pin_validates(self):
         for name in REAL_TOOLS:
@@ -235,11 +251,30 @@ class ShippedPinsTest(unittest.TestCase):
                 self.assertTrue(toolpin.bundled_library_system_names(library),
                                 f"{name}: {library}")
 
-    def test_every_shipped_pin_declares_both_hosts(self):
+    def test_every_shipped_pin_declares_linux_first(self):
         for name in REAL_TOOLS:
+            pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
+            self.assertEqual(pin["systems"][0], "linux_x86_64", name)
+
+    def test_only_gdb_is_linux_only_pending_its_windows_follow_up(self):
+        for name in ("tool-minipro", "tool-pk2cmd", "tool-picpro"):
             pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
             self.assertEqual(pin["systems"],
                              ["linux_x86_64", "windows_amd64"], name)
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
+        self.assertEqual(pin["systems"], ["linux_x86_64"])
+
+    def test_gdb_ships_its_source_tarball_and_checks_its_banner(self):
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
+        self.assertTrue(pin["ship_source_tarball"])
+        argv, banner = toolpin.banner_check(pin)
+        self.assertEqual(argv, ["./gdb", "--version"])
+        self.assertIn("GNU gdb", banner)
+
+    def test_gdb_configures_before_make_and_strips_the_binary(self):
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
+        self.assertIn("--disable-gdbserver", pin["build"]["configure_args"])
+        self.assertTrue(pin["build"]["strip"])
 
     def test_windows_c_binaries_ship_no_bundled_library(self):
         # The Windows backends use system libraries (WinUSB, HID) with static
@@ -366,6 +401,18 @@ class VersionSchemeTest(unittest.TestCase):
 
     def test_a_tag_with_no_plain_version_folds_to_nothing(self):
         self.assertIsNone(toolpin.upstream_version("nightly"))
+
+    def test_a_two_part_tag_names_the_zero_patch(self):
+        self.assertEqual(toolpin.upstream_version("17.2"), "17.2.0")
+
+    def test_a_prefixed_release_tag_folds_to_its_version(self):
+        self.assertEqual(toolpin.upstream_version("gdb-17.2-release"), "17.2.0")
+
+    def test_a_two_part_pin_validates_against_its_release_tag(self):
+        pin = base_pin()
+        pin["version"] = "1.2.0"
+        pin["upstream"]["tag"] = "demo-1.2-release"
+        self.assertEqual(toolpin.validate(pin), [])
 
     def test_a_version_from_another_upstream_is_rejected(self):
         pin = base_pin()
@@ -514,6 +561,22 @@ class PerSystemValidateTest(unittest.TestCase):
         problems = toolpin.validate(pin)
         self.assertTrue(any(".exe" in p for p in problems))
 
+    def test_a_configure_args_overlay_must_be_a_string_list(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["configure_args"] = ["--host=x"]
+        self.assertEqual(toolpin.validate(pin), [])
+        pin["build"]["per_system"]["windows_amd64"]["configure_args"] = "--host=x"
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("configure_args" in p for p in problems))
+
+    def test_a_strip_overlay_must_be_a_bool(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["strip"] = True
+        self.assertEqual(toolpin.validate(pin), [])
+        pin["build"]["per_system"]["windows_amd64"]["strip"] = "yes"
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("strip" in p for p in problems))
+
     def test_a_windows_verify_with_an_exit_expectation_is_rejected(self):
         # A cross-built PE cannot execute on the Linux build host, so an
         # exit expectation could never be honored there.
@@ -551,6 +614,35 @@ class PerSystemValidateTest(unittest.TestCase):
             with self.assertRaises(toolpin.PinError):
                 toolpin.load_pin(path)
 
+
+class RunMakeTest(unittest.TestCase):
+    """The make path configures first, then repairs the RUNPATH, then strips."""
+
+    def run_names(self, pin):
+        names = []
+        ok = mock.Mock(returncode=0, stdout="", stderr="")
+        def fake_run(cmd, **kwargs):
+            names.append(pathlib.Path(cmd[0]).name)
+            return ok
+        with mock.patch("subprocess.run", fake_run):
+            with mock.patch.object(pathlib.Path, "exists", lambda self: True):
+                build_tool.run_make(pathlib.Path("/src"), pin, "linux_x86_64")
+        return names
+
+    def test_a_configured_build_runs_configure_make_patchelf_strip(self):
+        pin = base_pin()
+        pin["build"] = {
+            "kind": "make",
+            "configure_args": ["--disable-ld"],
+            "output": "gdb/gdb",
+            "strip": True,
+        }
+        pin["bundled_libraries"] = ["libgmp"]
+        self.assertEqual(self.run_names(pin),
+                         ["configure", "make", "patchelf", "strip"])
+
+    def test_a_plain_build_runs_make_only(self):
+        self.assertEqual(self.run_names(base_pin()), ["make"])
 
 class PeMachineTest(unittest.TestCase):
     """The cross-build probe reads the PE header itself, no `file` tool."""
