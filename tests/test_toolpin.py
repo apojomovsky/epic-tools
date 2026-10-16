@@ -10,6 +10,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -560,6 +561,22 @@ class PerSystemValidateTest(unittest.TestCase):
         problems = toolpin.validate(pin)
         self.assertTrue(any(".exe" in p for p in problems))
 
+    def test_a_configure_args_overlay_must_be_a_string_list(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["configure_args"] = ["--host=x"]
+        self.assertEqual(toolpin.validate(pin), [])
+        pin["build"]["per_system"]["windows_amd64"]["configure_args"] = "--host=x"
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("configure_args" in p for p in problems))
+
+    def test_a_strip_overlay_must_be_a_bool(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["strip"] = True
+        self.assertEqual(toolpin.validate(pin), [])
+        pin["build"]["per_system"]["windows_amd64"]["strip"] = "yes"
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("strip" in p for p in problems))
+
     def test_a_windows_verify_with_an_exit_expectation_is_rejected(self):
         # A cross-built PE cannot execute on the Linux build host, so an
         # exit expectation could never be honored there.
@@ -597,6 +614,35 @@ class PerSystemValidateTest(unittest.TestCase):
             with self.assertRaises(toolpin.PinError):
                 toolpin.load_pin(path)
 
+
+class RunMakeTest(unittest.TestCase):
+    """The make path configures first, then repairs the RUNPATH, then strips."""
+
+    def run_names(self, pin):
+        names = []
+        ok = mock.Mock(returncode=0, stdout="", stderr="")
+        def fake_run(cmd, **kwargs):
+            names.append(pathlib.Path(cmd[0]).name)
+            return ok
+        with mock.patch("subprocess.run", fake_run):
+            with mock.patch.object(pathlib.Path, "exists", lambda self: True):
+                build_tool.run_make(pathlib.Path("/src"), pin, "linux_x86_64")
+        return names
+
+    def test_a_configured_build_runs_configure_make_patchelf_strip(self):
+        pin = base_pin()
+        pin["build"] = {
+            "kind": "make",
+            "configure_args": ["--disable-ld"],
+            "output": "gdb/gdb",
+            "strip": True,
+        }
+        pin["bundled_libraries"] = ["libgmp"]
+        self.assertEqual(self.run_names(pin),
+                         ["configure", "make", "patchelf", "strip"])
+
+    def test_a_plain_build_runs_make_only(self):
+        self.assertEqual(self.run_names(base_pin()), ["make"])
 
 class PeMachineTest(unittest.TestCase):
     """The cross-build probe reads the PE header itself, no `file` tool."""

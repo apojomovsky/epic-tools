@@ -130,7 +130,7 @@ def run_make(source_dir, pin, system):
     # A PE binary has no RUNPATH, so the Windows cross passes no rpath flag
     # and no LDFLAGS at all when the pin states none, letting the Makefile's
     # own Windows link stand.
-    if build.get("configure_args") is not None:
+    if build.get("configure_args"):
         # An autoconf upstream has no Makefile until configured. The step runs
         # in the source tree because the pin's output path is relative to it.
         configure = [str(work_dir / "configure"), *build["configure_args"]]
@@ -157,7 +157,7 @@ def run_make(source_dir, pin, system):
     libraries = build.get("bundled_libraries")
     if libraries is None:
         libraries = pin.get("bundled_libraries", [])
-    if libraries and system != "windows_amd64" and build.get("configure_args") is not None:
+    if libraries and system != "windows_amd64" and build.get("configure_args"):
         # Autoconf re-passes LDFLAGS through nested "LDFLAGS=$(LDFLAGS)"
         # lines, and that expansion eats the $ORIGIN the RUNPATH needs (a
         # two-level scratch Makefile reproduces it). Plain Makefiles keep

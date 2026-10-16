@@ -219,6 +219,15 @@ def _per_system_problems(pin):
                 if not isinstance(value, dict):
                     problems.append(f"{where} {key} must be an object")
                     shape_ok = False
+            elif key == "configure_args":
+                if (not isinstance(value, list) or not value
+                        or not all(isinstance(a, str) and a.strip() for a in value)):
+                    problems.append(f"{where} configure_args must be a non-empty list of strings")
+                    shape_ok = False
+            elif key == "strip":
+                if not isinstance(value, bool):
+                    problems.append(f"{where} strip must be true or false")
+                    shape_ok = False
             elif not isinstance(value, str):
                 problems.append(f"{where} {key} must be a string")
                 shape_ok = False
