@@ -5,9 +5,9 @@ for use with Microchip products provided a fixed copyright and modified-by
 notice is prominently posted where end users will see it. Upstream's own
 `-?l` banner already prints that notice text, but with Microchip's literal
 `[INSERT YOUR NAME, DATE OF SOFTWARE MODIFICATION HERE]` placeholder, which
-satisfies nothing. This patch names the modifier, so the banner carries a
-complete notice rather than a template. To be offered upstream by the human
-so the queue can shrink.
+satisfies nothing. This patch names our project and date, so the banner
+carries a complete notice rather than a template. Permanent downstream by
+design: no upstream commit can supply our name (epic-tasks#928, closed).
 
 --- a/pk2cmd/cmd_app.cpp
 +++ b/pk2cmd/cmd_app.cpp
