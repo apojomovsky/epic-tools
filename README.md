@@ -1,11 +1,8 @@
 # epic-tools
 
-Programmer software for epic8, packaged for PlatformIO.
-
-epic-tools turns three popular PIC programmers into PlatformIO tool packages.
-Once they are in place, `pio run -t upload` finds the right programmer
-software for your computer and writes your program to the chip, with nothing
-to build or install by hand.
+Programmer software for 8-bit PICs (pk2cmd, minipro, picpro), packaged so
+PlatformIO installs and runs it for you. The packaging is MIT licensed; each
+programmer keeps its upstream licence.
 
 ## What a tool package is
 
