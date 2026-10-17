@@ -30,7 +30,7 @@ BUILD_KINDS = ("make", "python")
 # states its own CC beside whatever the base carries.
 PER_SYSTEM_BUILD_KEYS = (
     "make_args", "extra_make_vars", "ldflags", "output", "verify",
-    "bundled_libraries", "configure_args", "strip",
+    "bundled_libraries", "configure_args", "strip", "strip_tool",
 )
 
 # Applied in filename order, so a queue that has to be ordered is numbered by
@@ -155,6 +155,9 @@ def validate(pin):
             problems.append("build.configure_args must be a non-empty list of strings")
         if "strip" in build and not isinstance(build["strip"], bool):
             problems.append("build.strip must be true or false")
+        tool = build.get("strip_tool")
+        if tool is not None and (not isinstance(tool, str) or not tool.strip()):
+            problems.append("build.strip_tool must be a non-empty string")
 
     systems = pin["systems"]
     if not isinstance(systems, list) or not systems:
@@ -227,6 +230,10 @@ def _per_system_problems(pin):
             elif key == "strip":
                 if not isinstance(value, bool):
                     problems.append(f"{where} strip must be true or false")
+                    shape_ok = False
+            elif key == "strip_tool":
+                if not isinstance(value, str) or not value.strip():
+                    problems.append(f"{where} strip_tool must be a non-empty string")
                     shape_ok = False
             elif not isinstance(value, str):
                 problems.append(f"{where} {key} must be a string")
@@ -386,6 +393,21 @@ def bundled_library_system_names(library):
     for by soname.
     """
     return (f"{library}.so", f"{library}.so.0")
+
+
+# The mingw prefix the Windows image installs cross-built dependencies into.
+MINGW_PREFIX = "/usr/x86_64-w64-mingw32"
+
+
+def bundled_library_windows_patterns(library):
+    """The glob patterns matching one library's DLLs in the mingw prefix.
+
+    A DLL carries its major version in the name (libgmp-10.dll), so the
+    versioned pattern matches whatever the pinned dependency builds while
+    the bare one covers an unversioned name. Both are anchored on the
+    library stem, so a neighbouring DLL never matches.
+    """
+    return (f"{library}-*.dll", f"{library}.dll")
 
 
 def banner_check(pin, system=None):

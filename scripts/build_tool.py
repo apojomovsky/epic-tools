@@ -169,8 +169,11 @@ def run_make(source_dir, pin, system):
             raise SystemExit(f"patchelf failed:\n{patched.stdout[-2000:]}{patched.stderr[-2000:]}")
     if build.get("strip"):
         # A debugger ships 170 MB of symbols it never needs at runtime;
-        # stripping is what keeps the registry package near 10 MB.
-        stripped = subprocess.run(["strip", "--strip-all", str(built)],
+        # stripping is what keeps the registry package near 10 MB. The
+        # native strip rejects a PE file, so a Windows cross names its
+        # mingw strip in build.strip_tool.
+        strip_tool = build.get("strip_tool", "strip")
+        stripped = subprocess.run([strip_tool, "--strip-all", str(built)],
                                   capture_output=True, text=True)
         if stripped.returncode != 0:
             raise SystemExit(f"strip failed:\n{stripped.stdout[-2000:]}{stripped.stderr[-2000:]}")
@@ -232,7 +235,10 @@ def pe_machine(path):
 
 def _verify_windows(package_dir, build):
     """Probe a cross-built tool without executing it."""
-    binary = package_dir / (build.get("output") or "")
+    # The driver copies the built file to the package root under its bare
+    # name, so an output nested in the source tree still probes the file
+    # that ships.
+    binary = package_dir / pathlib.Path(build.get("output") or "").name
     machine = pe_machine(binary) if binary.is_file() else None
     if machine != _PE_AMD64:
         raise SystemExit(f"expected a 64-bit Windows binary at {binary}")
@@ -311,6 +317,45 @@ def fetch_pinned_data(pin, dest_dir):
     return fetched
 
 
+def stage_windows_libraries(package_dir, libraries):
+    """Copy each bundled library's DLLs beside the .exe.
+
+    A PE binary has no RUNPATH, so the loader finds only what sits beside
+    the executable. The pin names stems because a DLL carries its major
+    version, which tracks the pinned dependency rather than the pin.
+    """
+    bin_dir = pathlib.Path(toolpin.MINGW_PREFIX) / "bin"
+    for library in libraries:
+        copied = 0
+        for pattern in toolpin.bundled_library_windows_patterns(library):
+            for candidate in sorted(bin_dir.glob(pattern)):
+                shutil.copy2(candidate, package_dir / candidate.name)
+                copied += 1
+        if not copied:
+            raise SystemExit(f"bundled library {library} not found in {bin_dir}")
+
+
+def stage_linux_libraries(package_dir, libraries):
+    """Copy each bundled library's shared objects under lib/."""
+    lib_dir = package_dir / "lib"
+    for library in libraries:
+        lib_dir.mkdir(exist_ok=True)
+        copied = 0
+        for name in toolpin.bundled_library_system_names(library):
+            for candidate in pathlib.Path("/usr/lib/x86_64-linux-gnu").glob(f"{name}*"):
+                # The symlink and its versioned target both ship, so a lookup
+                # by soname and by plain name resolve from inside the package.
+                destination = lib_dir / candidate.name
+                if not destination.exists():
+                    if candidate.is_symlink():
+                        destination.symlink_to(os.readlink(candidate))
+                    else:
+                        shutil.copy2(candidate, destination)
+                    copied += 1
+        if not copied:
+            raise SystemExit(f"bundled library {library} not found in the build image")
+
+
 def stage(pin, system, package_dir, source_dir, fetched):
     """Put the runtime pieces in place before the probe runs.
 
@@ -332,28 +377,10 @@ def stage(pin, system, package_dir, source_dir, fetched):
     libraries = toolpin.effective_build(pin, system).get("bundled_libraries")
     if libraries is None:
         libraries = pin.get("bundled_libraries", [])
-    if system == "windows_amd64" and libraries:
-        # The .so lookup below names Linux paths; a Windows DLL needs an
-        # explicit path the pin cannot name yet, so fail loudly instead of
-        # shipping a package whose library never lands.
-        raise SystemExit(f"bundled libraries are not supported for {system} yet")
-    lib_dir = package_dir / "lib"
-    for library in libraries:
-        lib_dir.mkdir(exist_ok=True)
-        copied = 0
-        for name in toolpin.bundled_library_system_names(library):
-            for candidate in pathlib.Path("/usr/lib/x86_64-linux-gnu").glob(f"{name}*"):
-                # The symlink and its versioned target both ship, so a lookup
-                # by soname and by plain name resolve from inside the package.
-                destination = lib_dir / candidate.name
-                if not destination.exists():
-                    if candidate.is_symlink():
-                        destination.symlink_to(os.readlink(candidate))
-                    else:
-                        shutil.copy2(candidate, destination)
-                    copied += 1
-        if not copied:
-            raise SystemExit(f"bundled library {library} not found in the build image")
+    if system == "windows_amd64":
+        stage_windows_libraries(package_dir, libraries)
+    else:
+        stage_linux_libraries(package_dir, libraries)
 
     if pin.get("ship_source_tarball"):
         # GPL-3.0 minipro: the release carries the exact source it was built

@@ -33,10 +33,12 @@ describes.
 
 A gdb-only build: no gdbserver, no binutils, no simulator, no Python
 scripting, no TUI. The only runtime libraries past the toolchain base
-are GMP and MPFR, shipped as shared libraries under `lib/`. The exact
-source tarball the binary was built from travels in the package.
+are GMP and MPFR, shipped as shared libraries: under `lib/` on Linux,
+beside `gdb.exe` on Windows. The exact source tarball the binary was
+built from travels in the package.
 
-Linux only for now; the Windows build is tracked separately.
+Linux and Windows are both packaged; macOS follows when the other
+packages support it.
 
 ## Links
 

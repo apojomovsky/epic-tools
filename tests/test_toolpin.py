@@ -4,6 +4,7 @@ No network, no docker, no upstream checkout: the pin rules are pure, and the
 parts that touch the filesystem are exercised against small synthetic trees.
 """
 
+import fnmatch
 import importlib.util
 import json
 import pathlib
@@ -107,6 +108,14 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual(toolpin.validate(pin), [])
         pin["build"]["strip"] = "yes"
         self.assertTrue(any("strip" in p for p in toolpin.validate(pin)))
+
+    def test_a_strip_tool_must_be_a_non_empty_string(self):
+        pin = base_pin()
+        pin["build"]["strip_tool"] = "x86_64-w64-mingw32-strip"
+        self.assertEqual(toolpin.validate(pin), [])
+        for bad in ("", "  ", 3):
+            pin["build"]["strip_tool"] = bad
+            self.assertTrue(any("strip_tool" in p for p in toolpin.validate(pin)), bad)
 
     def test_a_data_file_from_the_upstream_tree_is_valid(self):
         pin = base_pin()
@@ -256,13 +265,11 @@ class ShippedPinsTest(unittest.TestCase):
             pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
             self.assertEqual(pin["systems"][0], "linux_x86_64", name)
 
-    def test_only_gdb_is_linux_only_pending_its_windows_follow_up(self):
-        for name in ("tool-minipro", "tool-pk2cmd", "tool-picpro"):
+    def test_every_tool_ships_linux_and_windows(self):
+        for name in REAL_TOOLS:
             pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
             self.assertEqual(pin["systems"],
                              ["linux_x86_64", "windows_amd64"], name)
-        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
-        self.assertEqual(pin["systems"], ["linux_x86_64"])
 
     def test_gdb_ships_its_source_tarball_and_checks_its_banner(self):
         pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
@@ -276,15 +283,30 @@ class ShippedPinsTest(unittest.TestCase):
         self.assertIn("--disable-gdbserver", pin["build"]["configure_args"])
         self.assertTrue(pin["build"]["strip"])
 
-    def test_windows_c_binaries_ship_no_bundled_library(self):
-        # The Windows backends use system libraries (WinUSB, HID) with static
-        # runtimes, so a Windows package carries no lib/ directory at all.
+    def test_windows_programmer_binaries_ship_no_bundled_library(self):
+        # The programmer backends use system libraries (WinUSB, HID) with
+        # static runtimes, so those Windows packages carry no bundled
+        # library at all.
         for name in ("tool-minipro", "tool-pk2cmd"):
             pin = toolpin.load_pin(ROOT / "tools" / name / "pin.json")
             effective = toolpin.effective_build(pin, "windows_amd64")
             self.assertTrue(effective["output"].endswith(".exe"), name)
             self.assertEqual(effective.get("bundled_libraries",
                              pin.get("bundled_libraries")), [], name)
+
+    def test_gdb_windows_names_an_exe_with_mingw_gmp_mpfr(self):
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
+        effective = toolpin.effective_build(pin, "windows_amd64")
+        self.assertTrue(effective["output"].endswith(".exe"))
+        self.assertIn("--host=x86_64-w64-mingw32",
+                      effective["configure_args"])
+        self.assertEqual(effective["strip_tool"],
+                         "x86_64-w64-mingw32-strip")
+        self.assertIn("GNU gdb",
+                      effective["verify"]["strings_must_match"])
+        libraries = effective.get("bundled_libraries",
+                                  pin.get("bundled_libraries"))
+        self.assertEqual(libraries, ["libgmp", "libmpfr"])
 
     def test_picpro_builds_one_tree_for_both_hosts(self):
         pin = toolpin.load_pin(ROOT / "tools" / "tool-picpro" / "pin.json")
@@ -471,6 +493,15 @@ class BundledLibraryTest(unittest.TestCase):
         self.assertIn("libusb-1.0.so", names)
         self.assertIn("libusb-1.0.so.0", names)
 
+    def test_a_windows_library_matches_its_versioned_dll(self):
+        patterns = toolpin.bundled_library_windows_patterns("libgmp")
+        self.assertTrue(any(fnmatch.fnmatch("libgmp-10.dll", p)
+                            for p in patterns))
+        self.assertTrue(any(fnmatch.fnmatch("libgmp.dll", p)
+                            for p in patterns))
+        self.assertFalse(any(fnmatch.fnmatch("libmpfr-6.dll", p)
+                             for p in patterns))
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -576,6 +607,14 @@ class PerSystemValidateTest(unittest.TestCase):
         pin["build"]["per_system"]["windows_amd64"]["strip"] = "yes"
         problems = toolpin.validate(pin)
         self.assertTrue(any("strip" in p for p in problems))
+
+    def test_a_strip_tool_overlay_must_be_a_non_empty_string(self):
+        pin = self.windows_pin()
+        pin["build"]["per_system"]["windows_amd64"]["strip_tool"] = "x-strip"
+        self.assertEqual(toolpin.validate(pin), [])
+        pin["build"]["per_system"]["windows_amd64"]["strip_tool"] = ""
+        problems = toolpin.validate(pin)
+        self.assertTrue(any("strip_tool" in p for p in problems))
 
     def test_a_windows_verify_with_an_exit_expectation_is_rejected(self):
         # A cross-built PE cannot execute on the Linux build host, so an
@@ -767,3 +806,52 @@ class VerifyTest(unittest.TestCase):
                 build_tool.verify(pin, package, "windows_amd64")
             (package / "demo.exe").write_bytes(image + b"demo banner")
             build_tool.verify(pin, package, "windows_amd64")
+
+    def test_the_windows_probe_finds_a_nested_output_by_its_name(self):
+        # A libtool cross names its real binary under .libs/ while the
+        # driver stages the bare name, so the probe looks at the package
+        # root, not the in-tree path.
+        pin = base_pin()
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["build"]["per_system"] = {"windows_amd64": {
+            "output": "sub/demo.exe",
+            "verify": {"args": ["./demo.exe"],
+                       "strings_must_match": ["demo banner"]}}}
+        header = b"MZ" + b"\0" * 58 + (64).to_bytes(4, "little")
+        image = header + b"PE\0\0" + (0x8664).to_bytes(2, "little")
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp)
+            (package / "demo.exe").write_bytes(image + b"demo banner")
+            build_tool.verify(pin, package, "windows_amd64")
+
+
+class StageTest(unittest.TestCase):
+    """Bundled libraries land where each host's loader looks for them."""
+
+    def test_windows_dlls_land_beside_the_executable(self):
+        pin = base_pin()
+        pin["systems"] = ["linux_x86_64", "windows_amd64"]
+        pin["bundled_libraries"] = ["libgmp", "libmpfr"]
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = pathlib.Path(tmp) / "mingw"
+            (prefix / "bin").mkdir(parents=True)
+            (prefix / "bin" / "libgmp-10.dll").write_bytes(b"gmp")
+            (prefix / "bin" / "libmpfr-6.dll").write_bytes(b"mpfr")
+            package = pathlib.Path(tmp) / "package"
+            package.mkdir()
+            with mock.patch.object(toolpin, "MINGW_PREFIX", str(prefix)):
+                build_tool.stage_windows_libraries(
+                    package, ["libgmp", "libmpfr"])
+            self.assertEqual((package / "libgmp-10.dll").read_bytes(), b"gmp")
+            self.assertEqual((package / "libmpfr-6.dll").read_bytes(), b"mpfr")
+            self.assertFalse((package / "lib").exists())
+
+    def test_a_windows_library_missing_from_the_image_fails_loudly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = pathlib.Path(tmp) / "mingw"
+            (prefix / "bin").mkdir(parents=True)
+            package = pathlib.Path(tmp) / "package"
+            package.mkdir()
+            with mock.patch.object(toolpin, "MINGW_PREFIX", str(prefix)):
+                with self.assertRaises(SystemExit):
+                    build_tool.stage_windows_libraries(package, ["libgmp"])
