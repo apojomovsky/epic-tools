@@ -168,7 +168,7 @@ def run_make(source_dir, pin, system):
         if patched.returncode != 0:
             raise SystemExit(f"patchelf failed:\n{patched.stdout[-2000:]}{patched.stderr[-2000:]}")
     if build.get("strip"):
-        # A debugger ships 170 MB of symbols it never needs at runtime;
+        # A debugger ships 180 MB of symbols it never needs at runtime;
         # stripping is what keeps the registry package near 10 MB. The
         # native strip rejects a PE file, so a Windows cross names its
         # mingw strip in build.strip_tool.

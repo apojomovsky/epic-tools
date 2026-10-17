@@ -15,15 +15,13 @@ FROM ubuntu:22.04@sha256:79676deb51ebb02885b0b9d33788e78a37cf1045ad79d1bb04c6a22
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# gcc plus libc6-dev for the native half of a cross build (GMP builds tools
-# it runs while building, and --no-install-recommends leaves the C runtime
-# startup files out of the gcc package), m4 for GMP's configure, xz-utils
-# because GNU archives arrive as .tar.xz, gcc/g++-mingw-w64 for the cross
-# compilers, libz-mingw-w64-dev for minipro's static zlib, make plus
-# pkg-config for the upstream Makefiles (minipro's refuses to configure
-# without the binary itself), git because the patch queue is applied with
-# `git apply`, python3 because the container half of the build driver runs in
-# it, ca-certificates/curl for HTTPS fetches.
+# gcc plus libc6-dev for the native half of a cross build (GMP runs tools it
+# builds, and --no-install-recommends omits the C startup files), m4 for
+# GMP's configure, xz-utils for GNU .tar.xz archives, gcc/g++-mingw-w64 for
+# the cross compilers, libz-mingw-w64-dev for minipro's static zlib, make
+# plus pkg-config for the upstream Makefiles (minipro's refuses to configure
+# without the binary itself), git for `git apply`, python3 for the container
+# half of the build driver, ca-certificates/curl for HTTPS fetches.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         libc6-dev \
