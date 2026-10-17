@@ -12,7 +12,7 @@ epic-cc), not the HAL (epic-hal), and not the PlatformIO platform
 
 ## The decomposition of record
 
-[`epic-cc/docs/46-public-beta-design.md`](https://github.com/apojomovsky/epic-cc/blob/master/docs/46-public-beta-design.md)
+[`epic-cc/docs/internals/design/46-public-beta-design.md`](https://github.com/apojomovsky/epic-cc/blob/master/docs/internals/design/46-public-beta-design.md)
 is the plan this repository exists to serve; **D-10** is the decision that
 scopes it. Read it before touching a pin. The ticket that created this
 repository is epic-platformio#40, and `tool-minipro`, `tool-pk2cmd` and
