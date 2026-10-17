@@ -4,7 +4,7 @@ The Windows sources already select themselves with WIN32 guards; only a
 target naming them was missing. It follows the existing per-target
 pattern, links the HID and setupapi system libraries, and holds the
 mingw runtime statically so the binary ships without extra DLLs.
-To be offered upstream by the human so the queue can shrink.
+Permanent downstream by design: a pin bump rebases it.
 
 --- a/pk2cmd/Makefile
 +++ b/pk2cmd/Makefile

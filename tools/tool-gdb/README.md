@@ -49,8 +49,6 @@ packages support it.
 ## Where to report problems
 
 Report every problem with this package to
-[epic-tools](https://github.com/apojomovsky/epic-tools/issues) first. We
-triage it and forward only confirmed upstream bugs to the
-[GDB bug tracker](https://sourceware.org/bugzilla/). The upstream authors
-did not make this build and are not responsible for it,
-so please don't file package issues on their tracker.
+[epic-tools](https://github.com/apojomovsky/epic-tools/issues). Nothing is
+forwarded upstream. The upstream authors did not make this build and are not
+responsible for it, so please don't file package issues on their tracker.

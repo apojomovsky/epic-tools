@@ -52,8 +52,6 @@ pio run -t readback   # dump flash to .pio/build/<env>/readback.hex
 ## Where to report problems
 
 Report every problem with this package to
-[epic-tools](https://github.com/apojomovsky/epic-tools/issues) first. We
-triage it and forward only confirmed upstream bugs to
-[DavidGriffith/minipro](https://gitlab.com/DavidGriffith/minipro). The
-upstream authors did not make this build and are not responsible for it,
-so please don't file package issues on their tracker.
+[epic-tools](https://github.com/apojomovsky/epic-tools/issues). Nothing is
+forwarded upstream. The upstream authors did not make this build and are not
+responsible for it, so please don't file package issues on their tracker.

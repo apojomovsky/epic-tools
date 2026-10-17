@@ -6,8 +6,8 @@ buffer sizes the CRT secure functions want, keeping the three-argument
 shims for Linux. The HID handle compares against INVALID_HANDLE_VALUE,
 which holds on 64-bit where truncating the handle to int does not. The
 hex writer funnels every host through one strncat spelling instead of
-the platform secure name. To be offered upstream by the human so the
-queue can shrink.
+the platform secure name. Permanent downstream by design: a pin bump
+rebases it.
 
 --- a/pk2cmd/cmd_app.cpp
 +++ b/pk2cmd/cmd_app.cpp
