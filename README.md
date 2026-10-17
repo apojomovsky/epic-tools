@@ -34,7 +34,7 @@ is in the platform repository, linked below.
 
 The gdb client loads the ELF+DWARF sidecar epic-cc emits and talks to the
 simulator adapter over the remote protocol, so `pio debug` needs no system
-gdb. Linux only for now; Windows follows separately.
+gdb, on Linux or Windows.
 
 ## How PlatformIO users get them
 
@@ -78,9 +78,9 @@ that applies to it.
   The Windows packages do not bundle libusb.
 - **gdb** is GPL-3.0-or-later. The package includes the exact source it was
   built from, and gdb stays a separate program, never linked into MIT code.
-- **GMP and MPFR** are LGPL-3.0. On Linux they ride as separate shared
-  libraries under the gdb package's `lib/`, so you can replace them with
-  your own builds.
+- **GMP and MPFR** are LGPL-3.0. They ride as separate shared libraries, so
+  you can replace them with your own builds: under the gdb package's `lib/`
+  on Linux, beside `gdb.exe` on Windows.
 
 ## Building the packages yourself
 

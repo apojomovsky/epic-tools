@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-gdb]
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tool: [tool-minipro, tool-pk2cmd, tool-picpro]
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-gdb]
     env:
       SMOKE_TOOL: ${{ matrix.tool }}
     steps:
@@ -105,6 +105,13 @@ jobs:
             $text = & python $entry --help 2>&1 | Out-String
             $code = $LASTEXITCODE
             $want = ''
+          } elseif ($tool -eq 'tool-gdb') {
+            # --version matches the Linux probe; the DLLs ride beside the
+            # .exe, so the loader resolves them from the package root.
+            $exe = Join-Path $root 'gdb.exe'
+            $text = & $exe --version 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            $want = 'GNU gdb'
           } else {
             throw "unknown tool $tool"
           }

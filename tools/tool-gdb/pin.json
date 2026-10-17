@@ -1,1 +1,51 @@
-{"build": {"configure_args": ["--disable-gdbserver", "--disable-ld", "--disable-gold", "--disable-gas", "--disable-gprof", "--disable-sim", "--with-python=no", "--disable-tui"], "kind": "make", "output": "gdb/gdb", "strip": true, "verify": {"args": ["./gdb", "--version"], "banner_must_match": "GNU gdb", "expect_exit": 0}}, "bundled_libraries": ["libgmp", "libmpfr"], "description": "Unofficial epic8 package of GDB by the Free Software Foundation, the GNU debugger client. Debug epic8 firmware from pio debug with no system gdb", "homepage": "https://github.com/apojomovsky/epic-tools", "keywords": ["tools", "debug", "gdb", "pic", "microchip", "pic12", "pic14", "pic16", "pic18"], "license": {"file": "COPYING3", "name": "GNU General Public License v3.0 or later", "spdx": "GPL-3.0-or-later"}, "notes": "GPL-3.0: the release carries the exact source tarball the binary was built from, and gdb stays a separate program, never linked into MIT code. Built gdb-only: no gdbserver, binutils, or sim, no Python scripting and no TUI, so the only runtime libraries past the toolchain base are GMP and MPFR, which ride as shared libraries under lib/, never linked statically. The binary is stripped: an unstripped gdb is 180 MB, the shipped one is near 10 MB. The version folds the two-component upstream release (17.2) to 17.2.0 per the pin rules. Windows follows in a separate ticket: the cross needs mingw GMP/MPFR builds Ubuntu does not package.", "package": "tool-gdb", "repository": {"type": "git", "url": "https://github.com/apojomovsky/epic-tools.git"}, "ship_source_tarball": true, "systems": ["linux_x86_64"], "upstream": {"commit": "9eb6027c2d9e20169cd0376784a5b068667a89d1", "extract_dir": "gdb-17.2", "page": "https://sourceware.org/gdb/", "sha256": "1c036c0d72e4b3d1fb5c94c88632add6f9d76f4d7c4d2ea793c12a9f19a3228c", "tag": "gdb-17.2-release", "url": "https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz"}, "version": "17.2.0"}
+{
+  "build": {
+    "configure_args": ["--disable-gdbserver", "--disable-ld", "--disable-gold", "--disable-gas", "--disable-gprof", "--disable-sim", "--with-python=no", "--disable-tui"],
+    "kind": "make",
+    "output": "gdb/gdb",
+    "per_system": {
+      "windows_amd64": {
+        "configure_args": ["--disable-gdbserver", "--disable-ld", "--disable-gold", "--disable-gas", "--disable-gprof", "--disable-sim", "--with-python=no", "--disable-tui", "--host=x86_64-w64-mingw32", "--with-gmp=/usr/x86_64-w64-mingw32", "--with-mpfr=/usr/x86_64-w64-mingw32"],
+        "ldflags": "-static-libgcc -static-libstdc++",
+        "output": "gdb/.libs/gdb.exe",
+        "strip_tool": "x86_64-w64-mingw32-strip",
+        "verify": {
+          "args": ["./gdb.exe", "--version"],
+          "strings_must_match": ["GNU gdb"]
+        }
+      }
+    },
+    "strip": true,
+    "verify": {
+      "args": ["./gdb", "--version"],
+      "banner_must_match": "GNU gdb",
+      "expect_exit": 0
+    }
+  },
+  "bundled_libraries": ["libgmp", "libmpfr"],
+  "description": "Unofficial epic8 package of GDB by the Free Software Foundation, the GNU debugger client. Debug epic8 firmware from pio debug with no system gdb",
+  "homepage": "https://github.com/apojomovsky/epic-tools",
+  "keywords": ["tools", "debug", "gdb", "pic", "microchip", "pic12", "pic14", "pic16", "pic18"],
+  "license": {
+    "file": "COPYING3",
+    "name": "GNU General Public License v3.0 or later",
+    "spdx": "GPL-3.0-or-later"
+  },
+  "notes": "GPL-3.0: the release carries the exact source tarball the binary was built from, and gdb stays a separate program, never linked into MIT code. Built gdb-only: no gdbserver, binutils, or sim, no Python scripting and no TUI, so the only runtime libraries past the toolchain base are GMP and MPFR, which ride as shared libraries, never linked statically: under lib/ on Linux, beside the .exe on Windows. The binary is stripped: an unstripped gdb is 180 MB, the shipped one is near 10 MB. The version folds the two-component upstream release (17.2) to 17.2.0 per the pin rules. Windows links the compiler runtime statically so no toolchain DLL rides along, and the output names libtool's .libs binary because the plain path holds its wrapper on mingw.",
+  "package": "tool-gdb",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/apojomovsky/epic-tools.git"
+  },
+  "ship_source_tarball": true,
+  "systems": ["linux_x86_64", "windows_amd64"],
+  "upstream": {
+    "commit": "9eb6027c2d9e20169cd0376784a5b068667a89d1",
+    "extract_dir": "gdb-17.2",
+    "page": "https://sourceware.org/gdb/",
+    "sha256": "1c036c0d72e4b3d1fb5c94c88632add6f9d76f4d7c4d2ea793c12a9f19a3228c",
+    "tag": "gdb-17.2-release",
+    "url": "https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz"
+  },
+  "version": "17.2.0"
+}
