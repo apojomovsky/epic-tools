@@ -3,8 +3,8 @@ Honor MINIPRO_HOME on Windows when looking for the device databases.
 The Windows branch of get_database_file ignored MINIPRO_HOME and read only
 from the shared ProgramData dir, so a caller-staged database dir worked on
 every host but Windows. MINIPRO_HOME now wins when set, with the shared dir
-as the fallback, matching the other hosts. To be offered upstream by the
-human so the queue can shrink.
+as the fallback, matching the other hosts. Permanent downstream by design:
+a pin bump rebases it.
 
 --- a/src/database.c
 +++ b/src/database.c

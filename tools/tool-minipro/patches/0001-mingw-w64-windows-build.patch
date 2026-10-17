@@ -4,7 +4,7 @@ Cross-compile minipro for 64-bit Windows with mingw-w64.
 spelling builds on both. MSVC and mingw-w64 declare neither strndup nor
 stpcpy, so the Windows branch carries file-local spellings with the same
 contracts. zlib links statically on Windows so the binary ships without
-an extra DLL. To be offered upstream by the human so the queue can shrink.
+an extra DLL. Permanent downstream by design: a pin bump rebases it.
 
 --- a/src/database.c
 +++ b/src/database.c

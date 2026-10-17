@@ -20,11 +20,10 @@ repository is epic-platformio#40, and `tool-minipro`, `tool-pk2cmd` and
 
 The D-10 rule that shapes everything here: **a pinned upstream tag plus a
 patch directory, never a long-lived fork.** If a change is needed, it lands as
-a numbered patch, is offered upstream, and the pin moves when it lands. A patch
-queue that keeps growing is the failure mode this design exists to avoid.
-Offering a patch upstream is the human's step, never an agent's (Ground
-rules): the agent files a `dispatch-only` issue carrying the patch and a draft
-message, and stops there.
+a numbered patch and stays downstream permanently; a pin bump rebases the
+patches onto the new tag. Nothing goes upstream: no patch offers, bug reports
+or feature requests. The third-party rule below still points at the canonical
+epic-tasks wording.
 
 ## Picking up work
 
@@ -240,8 +239,7 @@ and never touches a programmer.
    releases); the licence and the file it ships; the build kind and its
    output; the systems.
 2. Any patch the pinned tag needs goes in `tools/<package>/patches/`,
-   numbered, with a `dispatch-only` issue in this repository carrying the
-   patch and a draft message for the human to send upstream (never an agent).
+   numbered, and stays downstream permanently; a pin bump rebases it.
 3. If the licence requires a visible notice, set `build.verify` with the
    argument that prints it and `banner_must_match`, so the build refuses to
    package a binary that does not carry it.
