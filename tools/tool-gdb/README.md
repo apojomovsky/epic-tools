@@ -26,7 +26,7 @@ gdb firmware.elf -ex "target remote :3333"
 
 `break main.c:42`, `step`, and `print counter` resolve against the
 sidecar's line table and DWARF, exactly as the
-[debugger design](https://github.com/apojomovsky/epic-cc/blob/master/docs/34-debugger-design.md)
+[debugger design](https://github.com/apojomovsky/epic-cc/blob/master/docs/internals/design/34-debugger-design.md)
 describes.
 
 ## What this package holds
