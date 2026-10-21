@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import toolpin  # noqa: E402
 import build_tool  # noqa: E402
 
-REAL_TOOLS = ("tool-minipro", "tool-pk2cmd", "tool-picpro", "tool-gdb")
+REAL_TOOLS = ("tool-minipro", "tool-pk2cmd", "tool-picpro", "tool-epic-gdb")
 
 
 def base_pin():
@@ -272,14 +272,14 @@ class ShippedPinsTest(unittest.TestCase):
                              ["linux_x86_64", "windows_amd64"], name)
 
     def test_gdb_ships_its_source_tarball_and_checks_its_banner(self):
-        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-epic-gdb" / "pin.json")
         self.assertTrue(pin["ship_source_tarball"])
         argv, banner = toolpin.banner_check(pin)
         self.assertEqual(argv, ["./gdb", "--version"])
         self.assertIn("GNU gdb", banner)
 
     def test_gdb_configures_before_make_and_strips_the_binary(self):
-        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-epic-gdb" / "pin.json")
         self.assertIn("--disable-gdbserver", pin["build"]["configure_args"])
         self.assertTrue(pin["build"]["strip"])
 
@@ -295,7 +295,7 @@ class ShippedPinsTest(unittest.TestCase):
                              pin.get("bundled_libraries")), [], name)
 
     def test_gdb_windows_names_an_exe_with_mingw_gmp_mpfr(self):
-        pin = toolpin.load_pin(ROOT / "tools" / "tool-gdb" / "pin.json")
+        pin = toolpin.load_pin(ROOT / "tools" / "tool-epic-gdb" / "pin.json")
         effective = toolpin.effective_build(pin, "windows_amd64")
         self.assertTrue(effective["output"].endswith(".exe"))
         self.assertIn("--host=x86_64-w64-mingw32",

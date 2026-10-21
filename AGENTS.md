@@ -136,7 +136,7 @@ outstanding. Don't skip it.
 
 - **Conventional Commits, single line.** `feat(scope): summary`, `fix(...)`,
   `chore(...)`, `docs(...)`, `build(...)`, `ci(...)`, `test(...)`. Scope is the
-  tool (`minipro`, `pk2cmd`, `picpro`), `build`, or `ci`.
+  tool (`minipro`, `pk2cmd`, `picpro`, `epic-gdb`), `build`, or `ci`.
 - **Never `Co-Authored-By:` or any other trailer, and no em-dashes.** The
   commit-msg hook rejects both. Use a comma, a colon, or a period instead.
 - **PR bodies use real newlines.** ``gh pr create --body-file`` or a heredoc,
