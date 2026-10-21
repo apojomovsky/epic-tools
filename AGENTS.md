@@ -1,10 +1,12 @@
 # AGENTS.md
 
-`epic-tools` builds the programmer tools the epic8 platform flashes with as
-PlatformIO tool packages: `minipro` (XGecu TL866 series), `pk2cmd` (PICkit2,
-PICkit3, PKOB) and `picpro` (Kitsrus K150 and siblings). One directory per
-tool under `tools/`, each a pinned upstream tag plus a small patch queue, and a
-CI path that builds per host and publishes on a tag.
+`epic-tools` builds the programmer tools the epic8 platform flashes with, and
+the GDB client that debugs the firmware they flash, as PlatformIO tool
+packages: `minipro` (XGecu TL866 series), `pk2cmd` (PICkit2, PICkit3, PKOB),
+`picpro` (Kitsrus K150 and siblings) and `epic-gdb` (GDB for 8-bit PIC
+firmware). One directory per tool under `tools/`, each a pinned upstream tag
+plus a small patch queue, and a CI path that builds per host and publishes on
+a tag.
 
 This repository packages other people's tools. It is not the compiler (that is
 epic-cc), not the HAL (epic-hal), and not the PlatformIO platform
