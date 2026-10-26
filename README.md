@@ -30,7 +30,7 @@ is in the platform repository, linked below.
 
 | Use | Package | Upstream project | Licence |
 |---|---|---|---|
-| Source-level debug of epic8 firmware | `tool-gdb` | [GDB](https://sourceware.org/gdb/) | GPL-3.0-or-later |
+| Source-level debug of epic8 firmware | `tool-epic-gdb` | [GDB](https://sourceware.org/gdb/) | GPL-3.0-or-later |
 
 The gdb client loads the ELF+DWARF sidecar epic-cc emits and talks to the
 simulator adapter over the remote protocol, so `pio debug` needs no system
@@ -79,8 +79,8 @@ that applies to it.
 - **gdb** is GPL-3.0-or-later. The package includes the exact source it was
   built from, and gdb stays a separate program, never linked into MIT code.
 - **GMP and MPFR** are LGPL-3.0. They ride as separate shared libraries, so
-  you can replace them with your own builds: under the gdb package's `lib/`
-  on Linux, beside `gdb.exe` on Windows.
+  you can replace them with your own builds: under the epic-gdb package's
+  `lib/` on Linux, beside `gdb.exe` on Windows.
 
 ## Building the packages yourself
 

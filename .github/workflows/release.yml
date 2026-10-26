@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-gdb]
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-epic-gdb]
         system: [linux_x86_64, windows_amd64]
     steps:
       - uses: actions/checkout@v4
@@ -202,7 +202,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-gdb]
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-epic-gdb]
     env:
       SMOKE_TOOL: ${{ matrix.tool }}
     steps:
@@ -280,7 +280,7 @@ jobs:
             $text = & python $entry --help 2>&1 | Out-String
             $code = $LASTEXITCODE
             $want = ''
-          } elseif ($tool -eq 'tool-gdb') {
+          } elseif ($tool -eq 'tool-epic-gdb') {
             # --version matches the Linux probe; the DLLs ride beside the
             # .exe, so the loader resolves them from the package root.
             $exe = Join-Path $root 'gdb.exe'
@@ -312,7 +312,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-gdb]
+        tool: [tool-minipro, tool-pk2cmd, tool-picpro, tool-epic-gdb]
     steps:
       - uses: actions/checkout@v4
 

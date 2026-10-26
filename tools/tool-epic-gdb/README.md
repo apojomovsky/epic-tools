@@ -1,4 +1,4 @@
-# tool-gdb
+# tool-epic-gdb
 
 Unofficial repackaging. We don't develop GDB; it is the work of the
 Free Software Foundation
@@ -8,6 +8,9 @@ under GPL-3.0-or-later. Not affiliated with or endorsed by them.
 An epic8 build of GDB, the GNU debugger client. Debug firmware compiled
 by epic-cc with breakpoints on C lines, stepping, and typed `print`,
 with no system gdb on your side.
+
+The package name carries the epic8 mark because this is our own build
+for PIC firmware, not a package claiming the generic gdb name.
 
 ## Try it in 60 seconds
 

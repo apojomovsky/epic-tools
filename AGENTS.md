@@ -1,10 +1,12 @@
 # AGENTS.md
 
-`epic-tools` builds the programmer tools the epic8 platform flashes with as
-PlatformIO tool packages: `minipro` (XGecu TL866 series), `pk2cmd` (PICkit2,
-PICkit3, PKOB) and `picpro` (Kitsrus K150 and siblings). One directory per
-tool under `tools/`, each a pinned upstream tag plus a small patch queue, and a
-CI path that builds per host and publishes on a tag.
+`epic-tools` builds the programmer tools the epic8 platform flashes with, and
+the GDB client that debugs the firmware they flash, as PlatformIO tool
+packages: `minipro` (XGecu TL866 series), `pk2cmd` (PICkit2, PICkit3, PKOB),
+`picpro` (Kitsrus K150 and siblings) and `epic-gdb` (GDB for 8-bit PIC
+firmware). One directory per tool under `tools/`, each a pinned upstream tag
+plus a small patch queue, and a CI path that builds per host and publishes on
+a tag.
 
 This repository packages other people's tools. It is not the compiler (that is
 epic-cc), not the HAL (epic-hal), and not the PlatformIO platform
@@ -136,7 +138,7 @@ outstanding. Don't skip it.
 
 - **Conventional Commits, single line.** `feat(scope): summary`, `fix(...)`,
   `chore(...)`, `docs(...)`, `build(...)`, `ci(...)`, `test(...)`. Scope is the
-  tool (`minipro`, `pk2cmd`, `picpro`), `build`, or `ci`.
+  tool (`minipro`, `pk2cmd`, `picpro`, `epic-gdb`), `build`, or `ci`.
 - **Never `Co-Authored-By:` or any other trailer, and no em-dashes.** The
   commit-msg hook rejects both. Use a comma, a colon, or a period instead.
 - **PR bodies use real newlines.** ``gh pr create --body-file`` or a heredoc,

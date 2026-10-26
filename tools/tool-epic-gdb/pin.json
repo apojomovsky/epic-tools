@@ -31,8 +31,8 @@
     "name": "GNU General Public License v3.0 or later",
     "spdx": "GPL-3.0-or-later"
   },
-  "notes": "GPL-3.0: the release carries the exact source tarball the binary was built from, and gdb stays a separate program, never linked into MIT code. Built gdb-only: no gdbserver, binutils, or sim, no Python scripting and no TUI, so the only runtime libraries past the toolchain base are GMP and MPFR, which ride as shared libraries, never linked statically: under lib/ on Linux, beside the .exe on Windows. The binary is stripped: an unstripped gdb is 180 MB, the shipped one is near 10 MB. The version folds the two-component upstream release (17.2) to 17.2.0 per the pin rules. Windows links the compiler runtime statically so no toolchain DLL rides along, and the output names libtool's .libs binary because the plain path holds its wrapper on mingw.",
-  "package": "tool-gdb",
+  "notes": "GPL-3.0: the release carries the exact source tarball the binary was built from, and gdb stays a separate program, never linked into MIT code. Built gdb-only: no gdbserver, binutils, or sim, no Python scripting and no TUI, so the only runtime libraries past the toolchain base are GMP and MPFR, which ride as shared libraries, never linked statically: under lib/ on Linux, beside the .exe on Windows. The binary is stripped: an unstripped gdb is 180 MB, the shipped one is near 10 MB. The version folds the two-component upstream release (17.2) to 17.2.0 per the pin rules, with +pio1 the packaging revision for the rename. Windows links the compiler runtime statically so no toolchain DLL rides along, and the output names libtool's .libs binary because the plain path holds its wrapper on mingw.",
+  "package": "tool-epic-gdb",
   "repository": {
     "type": "git",
     "url": "https://github.com/apojomovsky/epic-tools.git"
@@ -47,5 +47,5 @@
     "tag": "gdb-17.2-release",
     "url": "https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz"
   },
-  "version": "17.2.0"
+  "version": "17.2.0+pio1"
 }
